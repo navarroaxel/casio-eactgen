@@ -40,6 +40,13 @@ export function FileNavigator(props: FileNavigatorProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const editing = editingId ? files.find((f) => f.id === editingId) : undefined;
 
+  const handleSelect = (id: string) => {
+    props.onSelect(id);
+    // On mobile the navigator is a full-screen drawer — close it after picking
+    // a file so the editor is visible.
+    if (!window.matchMedia("(min-width: 640px)").matches) props.onToggle();
+  };
+
   if (!open) {
     const active = files.find((f) => f.id === activeId);
     return (
@@ -62,7 +69,13 @@ export function FileNavigator(props: FileNavigatorProps) {
 
   return (
     <>
-    <aside className="flex w-60 shrink-0 flex-col gap-2 self-stretch rounded-xl border border-black/10 p-2 dark:border-white/10">
+    {/* Mobile: dim the page behind the full-screen drawer. */}
+    <div
+      className="fixed inset-0 z-40 bg-black/40 sm:hidden"
+      aria-hidden
+      onClick={props.onToggle}
+    />
+    <aside className="fixed inset-y-0 left-0 z-50 flex w-full flex-col gap-2 border-r border-black/10 bg-white p-3 sm:static sm:z-auto sm:w-60 sm:shrink-0 sm:self-stretch sm:rounded-xl sm:border sm:bg-transparent sm:p-2 dark:border-white/10 dark:bg-neutral-900 sm:dark:bg-transparent">
       <div className="flex items-center justify-between px-1">
         <span className="text-sm font-medium">Files</span>
         <div className="flex items-center gap-0.5">
@@ -106,7 +119,13 @@ export function FileNavigator(props: FileNavigatorProps) {
 
       <ul className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto">
         {rootFiles.map((f) => (
-          <FileRow key={f.id} file={f} onEdit={setEditingId} {...props} />
+          <FileRow
+            key={f.id}
+            file={f}
+            onEdit={setEditingId}
+            {...props}
+            onSelect={handleSelect}
+          />
         ))}
 
         {folders.map((folder) => (
@@ -144,7 +163,13 @@ export function FileNavigator(props: FileNavigatorProps) {
               {files
                 .filter((f) => f.folder === folder)
                 .map((f) => (
-                  <FileRow key={f.id} file={f} onEdit={setEditingId} {...props} />
+                  <FileRow
+            key={f.id}
+            file={f}
+            onEdit={setEditingId}
+            {...props}
+            onSelect={handleSelect}
+          />
                 ))}
             </ul>
           </li>
