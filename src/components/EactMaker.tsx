@@ -8,18 +8,22 @@ import {
   splitlines,
   type EactFormat,
 } from "@/lib/casio";
+import { zipSync } from "fflate";
 import { applySnippet, type Snippet } from "@/lib/insertAtCaret";
 import { PALETTES } from "@/lib/palettes";
+import {
+  loadProject,
+  newFile,
+  parseProjectFile,
+  planExport,
+  safeName,
+  serializeProject,
+  STORAGE_KEY,
+  type EactFile,
+  type Project,
+} from "@/lib/project";
+import { FileNavigator } from "./FileNavigator";
 import { GitHubLink } from "./GitHubLink";
-
-const STORAGE_KEY = "eactmaker.project.v1";
-
-interface Project {
-  title: string;
-  format: EactFormat;
-  compatibility: boolean;
-  content: string;
-}
 
 interface MathButton extends Snippet {
   label: string;
@@ -95,40 +99,10 @@ function downloadBlob(name: string, data: ArrayBuffer | string, mime: string) {
   URL.revokeObjectURL(url);
 }
 
-const safeName = (s: string, fallback: string) =>
-  (s.trim() || fallback).replace(/[^\w.-]+/g, "_");
-
-function loadProject(): Project {
-  const fallback: Project = {
-    title: "",
-    format: "g2e",
-    compatibility: false,
-    content: "",
-  };
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return fallback;
-    const p = JSON.parse(raw) as Partial<Project>;
-    return {
-      title: typeof p.title === "string" ? p.title : "",
-      format: p.format === "g1e" ? "g1e" : "g2e",
-      compatibility: Boolean(p.compatibility),
-      content: typeof p.content === "string" ? p.content : "",
-    };
-  } catch {
-    return fallback;
-  }
-}
-
 export default function EactMaker() {
   // This component renders client-only (see EactMakerClient), so reading
-  // localStorage in the lazy initializers is safe and avoids hydration mismatch.
-  const [title, setTitle] = useState(() => loadProject().title);
-  const [format, setFormat] = useState<EactFormat>(() => loadProject().format);
-  const [compatibility, setCompatibility] = useState(
-    () => loadProject().compatibility,
-  );
-  const [content, setContent] = useState(() => loadProject().content);
+  // localStorage in the lazy initializer is safe and avoids hydration mismatch.
+  const [project, setProject] = useState<Project>(() => loadProject());
   const [activeTab, setActiveTab] = useState(PALETTES[0].id);
   const [status, setStatus] = useState<string | null>(null);
 
@@ -136,15 +110,115 @@ export default function EactMaker() {
   const fileRef = useRef<HTMLInputElement>(null);
   const pendingCaret = useRef<number | null>(null);
 
+  const { format, compatibility } = project;
+  const activeFile =
+    project.files.find((f) => f.id === project.ui.activeId) ?? project.files[0];
+  const title = activeFile.title;
+  const content = activeFile.content;
+
+  const setFormat = useCallback(
+    (format: EactFormat) => setProject((p) => ({ ...p, format })),
+    [],
+  );
+  const setCompatibility = useCallback(
+    (compatibility: boolean) => setProject((p) => ({ ...p, compatibility })),
+    [],
+  );
+  const updateActiveFile = useCallback((patch: Partial<EactFile>) => {
+    setProject((p) => ({
+      ...p,
+      files: p.files.map((f) =>
+        f.id === p.ui.activeId ? { ...f, ...patch } : f,
+      ),
+    }));
+  }, []);
+  const setTitle = useCallback(
+    (title: string) => updateActiveFile({ title }),
+    [updateActiveFile],
+  );
+  const setContent = useCallback(
+    (content: string) => updateActiveFile({ content }),
+    [updateActiveFile],
+  );
+
+  // --- File navigator actions ---
+  const selectFile = useCallback(
+    (id: string) => setProject((p) => ({ ...p, ui: { ...p.ui, activeId: id } })),
+    [],
+  );
+  const toggleNav = useCallback(
+    () =>
+      setProject((p) => ({ ...p, ui: { ...p.ui, navOpen: !p.ui.navOpen } })),
+    [],
+  );
+  const addFile = useCallback(
+    (folder: string | null = null) =>
+      setProject((p) => {
+        const f = newFile({ folder });
+        return { ...p, files: [...p.files, f], ui: { ...p.ui, activeId: f.id } };
+      }),
+    [],
+  );
+  const addFolder = useCallback(() => {
+    const name = window.prompt("New folder name")?.trim();
+    if (!name) return;
+    setProject((p) =>
+      p.folders.includes(name) ? p : { ...p, folders: [...p.folders, name] },
+    );
+  }, []);
+  const deleteFile = useCallback(
+    (id: string) =>
+      setProject((p) => {
+        let files = p.files.filter((f) => f.id !== id);
+        if (files.length === 0) files = [newFile()];
+        const activeId =
+          p.ui.activeId === id ? files[0].id : p.ui.activeId;
+        return { ...p, files, ui: { ...p.ui, activeId } };
+      }),
+    [],
+  );
+  const moveFile = useCallback(
+    (id: string, folder: string | null) =>
+      setProject((p) => ({
+        ...p,
+        files: p.files.map((f) => (f.id === id ? { ...f, folder } : f)),
+      })),
+    [],
+  );
+  const renameFolder = useCallback((name: string) => {
+    const next = window.prompt("Rename folder", name)?.trim();
+    if (!next || next === name) return;
+    setProject((p) => {
+      if (p.folders.includes(next)) return p; // avoid merging into an existing folder
+      return {
+        ...p,
+        folders: p.folders.map((fl) => (fl === name ? next : fl)),
+        files: p.files.map((f) =>
+          f.folder === name ? { ...f, folder: next } : f,
+        ),
+      };
+    });
+  }, []);
+  const deleteFolder = useCallback(
+    (name: string) =>
+      setProject((p) => ({
+        ...p,
+        folders: p.folders.filter((fl) => fl !== name),
+        files: p.files.map((f) =>
+          f.folder === name ? { ...f, folder: null } : f,
+        ),
+      })),
+    [],
+  );
+
   // Persist to localStorage as the user works.
   useEffect(() => {
-    const p: Project = { title, format, compatibility, content };
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(p));
+      localStorage.setItem(STORAGE_KEY, serializeProject(project));
     } catch {
       /* quota / private mode — non-fatal */
     }
-  }, [title, format, compatibility, content]);
+  }, [project]);
 
   // Apply a deferred caret position after a programmatic insert.
   useEffect(() => {
@@ -175,7 +249,7 @@ export default function EactMaker() {
       pendingCaret.current = res.caret;
       setContent(res.value);
     },
-    [content],
+    [content, setContent],
   );
 
   // Live encode: byte size + per-line decoded preview + first error.
@@ -218,11 +292,45 @@ export default function EactMaker() {
     }
   };
 
+  const handleExportAll = () => {
+    try {
+      const plan = planExport(project.files, format);
+      const zipInput: Record<string, Uint8Array> = {};
+      let total = 0;
+      for (const entry of plan) {
+        const file = project.files.find((f) => f.id === entry.id)!;
+        try {
+          const bytes = buildEact(file.title, file.content, {
+            literalSuper: compatibility,
+          });
+          zipInput[entry.path] = bytes;
+          total += bytes.length;
+        } catch (err) {
+          throw new Error(
+            `"${file.title.trim() || "Untitled"}": ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+      }
+      const zipped = zipSync(zipInput);
+      downloadBlob(
+        "eactivities.zip",
+        zipped.slice().buffer,
+        "application/zip",
+      );
+      const renamed = plan.filter((e) => e.renamed).length;
+      setStatus(
+        `Exported ${plan.length} file(s) · ${total} bytes` +
+          (renamed ? ` · ${renamed} renamed to avoid name clashes` : ""),
+      );
+    } catch (err) {
+      setStatus(`Error: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  };
+
   const handleSave = () => {
-    const p: Project = { title, format, compatibility, content };
     downloadBlob(
       `${safeName(title, "project")}.eam.json`,
-      JSON.stringify(p, null, 2),
+      serializeProject(project),
       "application/json",
     );
     setStatus("Project saved");
@@ -230,11 +338,7 @@ export default function EactMaker() {
 
   const handleLoadFile = async (file: File) => {
     try {
-      const p = JSON.parse(await file.text()) as Partial<Project>;
-      setTitle(typeof p.title === "string" ? p.title : "");
-      setFormat(p.format === "g1e" ? "g1e" : "g2e");
-      setCompatibility(Boolean(p.compatibility));
-      setContent(typeof p.content === "string" ? p.content : "");
+      setProject(parseProjectFile(await file.text()));
       setStatus(`Loaded ${file.name}`);
     } catch {
       setStatus("Could not load that file (expected a .eam.json project)");
@@ -244,29 +348,28 @@ export default function EactMaker() {
   const titleOver = title.length > 8;
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 p-4 sm:p-6">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 p-4 sm:p-6">
       <Header />
 
-      {/* Controls */}
-      <section className="grid grid-cols-1 gap-4 rounded-xl border border-black/10 bg-black/[0.02] p-4 sm:grid-cols-[1fr_auto_auto] sm:items-start dark:border-white/10 dark:bg-white/[0.03]">
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="font-medium">Title</span>
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="e.g. PHYSICS"
-            maxLength={32}
-            className="rounded-lg border border-black/15 bg-white px-3 py-2 font-mono outline-none focus:border-emerald-500 dark:border-white/15 dark:bg-black"
-          />
-          <span
-            className={`text-xs ${titleOver ? "text-amber-600" : "text-black/40 dark:text-white/40"}`}
-          >
-            {titleOver
-              ? `Only the first 8 chars are used (banner: "${title.slice(0, 8)}")`
-              : "Up to 8 characters appear on the calculator"}
-          </span>
-        </label>
+      <div className="flex items-start gap-5">
+        <FileNavigator
+          files={project.files}
+          folders={project.folders}
+          activeId={project.ui.activeId}
+          open={project.ui.navOpen}
+          onToggle={toggleNav}
+          onSelect={selectFile}
+          onNewFile={addFile}
+          onNewFolder={addFolder}
+          onDeleteFile={deleteFile}
+          onMoveFile={moveFile}
+          onRenameFolder={renameFolder}
+          onDeleteFolder={deleteFolder}
+        />
 
+        <div className="flex min-w-0 flex-1 flex-col gap-5">
+      {/* Project settings (global to every file) */}
+      <section className="flex flex-wrap items-end gap-4 rounded-xl border border-black/10 bg-black/[0.02] p-4 dark:border-white/10 dark:bg-white/[0.03]">
         <label className="flex flex-col gap-1 text-sm">
           <span className="font-medium">Format</span>
           <select
@@ -282,23 +385,22 @@ export default function EactMaker() {
           </select>
         </label>
 
-        <div className="flex flex-col gap-1 text-sm">
-          <span className="hidden font-medium select-none sm:block" aria-hidden>
-            &nbsp;
-          </span>
-          <label
-            className="flex h-[42px] cursor-pointer items-center gap-2 rounded-lg border border-black/15 px-3 text-sm select-none dark:border-white/15"
-            title="Encode ² ³ as the power form (^) rather than the literal superscript glyph"
-          >
-            <input
-              type="checkbox"
-              checked={compatibility}
-              onChange={(e) => setCompatibility(e.target.checked)}
-              className="size-4 accent-emerald-600"
-            />
-            <span>Compatibility mode</span>
-          </label>
-        </div>
+        <label
+          className="flex h-[42px] cursor-pointer items-center gap-2 rounded-lg border border-black/15 px-3 text-sm select-none dark:border-white/15"
+          title="Encode ² ³ as the power form (^) rather than the literal superscript glyph"
+        >
+          <input
+            type="checkbox"
+            checked={compatibility}
+            onChange={(e) => setCompatibility(e.target.checked)}
+            className="size-4 accent-emerald-600"
+          />
+          <span>Compatibility mode</span>
+        </label>
+
+        <span className="text-xs text-black/40 dark:text-white/40">
+          Format &amp; compatibility apply to the whole project.
+        </span>
       </section>
 
       {/* Math toolbar */}
@@ -351,8 +453,26 @@ export default function EactMaker() {
         </div>
       </section>
 
-      {/* Editor + preview */}
-      <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      {/* Editor (per-file) */}
+      <section className="flex flex-col gap-3">
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="font-medium">File title</span>
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="e.g. PHYSICS"
+            maxLength={32}
+            className="w-full max-w-xs rounded-lg border border-black/15 bg-white px-3 py-2 font-mono outline-none focus:border-emerald-500 dark:border-white/15 dark:bg-black"
+          />
+          <span
+            className={`text-xs ${titleOver ? "text-amber-600" : "text-black/40 dark:text-white/40"}`}
+          >
+            {titleOver
+              ? `Only the first 8 chars are used (banner: "${title.slice(0, 8)}")`
+              : "Up to 8 characters — the file name shown on the calculator"}
+          </span>
+        </label>
+
         <div className="flex flex-col gap-1">
           <span className="text-sm font-medium">
             Editor — one eActivity line per row
@@ -365,13 +485,13 @@ export default function EactMaker() {
             placeholder={
               "Type your formulas, e.g.\n∇·E=\\frac{ρ}{ε₀}\nWe=½CV^2\n\\note{Tip}{Notes appear as a strip}"
             }
-            className="h-72 w-full resize-y rounded-xl border border-black/15 bg-white p-3 font-mono text-sm leading-relaxed outline-none focus:border-emerald-500 dark:border-white/15 dark:bg-black"
+            className="h-64 w-full resize-y rounded-xl border border-black/15 bg-white p-3 font-mono text-sm leading-relaxed outline-none focus:border-emerald-500 dark:border-white/15 dark:bg-black"
           />
         </div>
 
         <div className="flex flex-col gap-1">
           <span className="text-sm font-medium">Preview</span>
-          <div className="flex h-72 flex-col overflow-hidden rounded-xl border border-black/15 dark:border-white/15">
+          <div className="flex h-56 flex-col overflow-hidden rounded-xl border border-black/15 dark:border-white/15">
             <div className="flex items-center justify-between gap-2 border-b border-black/10 bg-black/[0.03] px-3 py-2 text-xs dark:border-white/10 dark:bg-white/[0.04]">
               <span>{analysis.lineCount} line(s)</span>
               <span>
@@ -421,11 +541,18 @@ export default function EactMaker() {
       <section className="flex flex-wrap items-center gap-3">
         <button
           type="button"
+          onClick={handleExportAll}
+          className="rounded-lg bg-emerald-600 px-5 py-2.5 font-medium text-white transition hover:bg-emerald-700"
+        >
+          Export all (.zip)
+        </button>
+        <button
+          type="button"
           onClick={handleConvert}
           disabled={analysis.size == null}
-          className="rounded-lg bg-emerald-600 px-5 py-2.5 font-medium text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
+          className="rounded-lg border border-emerald-600/40 px-4 py-2.5 font-medium text-emerald-700 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-40 dark:text-emerald-400 dark:hover:bg-emerald-500/10"
         >
-          Convert &amp; download
+          Download this file (.{format})
         </button>
         <button
           type="button"
@@ -458,6 +585,8 @@ export default function EactMaker() {
           </span>
         )}
       </section>
+        </div>
+      </div>
 
       <Footer />
     </div>
