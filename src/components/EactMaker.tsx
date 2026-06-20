@@ -83,11 +83,6 @@ const MATH_BUTTONS: MathButton[] = [
   },
 ];
 
-const FORMATS: { value: EactFormat; label: string }[] = [
-  { value: "g2e", label: "G2E" },
-  { value: "g1e", label: "G1E" },
-];
-
 function downloadBlob(name: string, data: ArrayBuffer | string, mime: string) {
   const url = URL.createObjectURL(new Blob([data], { type: mime }));
   const a = document.createElement("a");
@@ -103,7 +98,7 @@ export default function EactMaker() {
   // This component renders client-only (see EactMakerClient), so reading
   // localStorage in the lazy initializer is safe and avoids hydration mismatch.
   const [project, setProject] = useState<Project>(() => loadProject());
-  const [activeTab, setActiveTab] = useState(PALETTES[0].id);
+  const [activeTab, setActiveTab] = useState<string | null>(PALETTES[0].id);
   const [status, setStatus] = useState<string | null>(null);
 
   const taRef = useRef<HTMLTextAreaElement>(null);
@@ -131,16 +126,20 @@ export default function EactMaker() {
       ),
     }));
   }, []);
-  const setTitle = useCallback(
-    (title: string) => updateActiveFile({ title }),
-    [updateActiveFile],
-  );
   const setContent = useCallback(
     (content: string) => updateActiveFile({ content }),
     [updateActiveFile],
   );
 
   // --- File navigator actions ---
+  const renameFile = useCallback(
+    (id: string, title: string) =>
+      setProject((p) => ({
+        ...p,
+        files: p.files.map((f) => (f.id === id ? { ...f, title } : f)),
+      })),
+    [],
+  );
   const selectFile = useCallback(
     (id: string) => setProject((p) => ({ ...p, ui: { ...p.ui, activeId: id } })),
     [],
@@ -344,8 +343,6 @@ export default function EactMaker() {
     }
   };
 
-  const titleOver = title.length > 8;
-
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 p-4 sm:p-6">
       <Header />
@@ -356,8 +353,13 @@ export default function EactMaker() {
           folders={project.folders}
           activeId={project.ui.activeId}
           open={project.ui.navOpen}
+          format={format}
+          compatibility={compatibility}
           onToggle={toggleNav}
           onSelect={selectFile}
+          onRenameFile={renameFile}
+          onSetFormat={setFormat}
+          onSetCompatibility={setCompatibility}
           onNewFile={addFile}
           onNewFolder={addFolder}
           onDeleteFile={deleteFile}
@@ -369,41 +371,6 @@ export default function EactMaker() {
         />
 
         <div className="flex min-w-0 flex-1 flex-col gap-5">
-      {/* Project settings (global to every file) */}
-      <section className="flex flex-wrap items-end gap-4 rounded-xl border border-black/10 bg-black/[0.02] p-4 dark:border-white/10 dark:bg-white/[0.03]">
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="font-medium">Format</span>
-          <select
-            value={format}
-            onChange={(e) => setFormat(e.target.value as EactFormat)}
-            className="rounded-lg border border-black/15 bg-white px-3 py-2 outline-none focus:border-emerald-500 dark:border-white/15 dark:bg-black"
-          >
-            {FORMATS.map((f) => (
-              <option key={f.value} value={f.value}>
-                {f.label}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label
-          className="flex h-[42px] cursor-pointer items-center gap-2 rounded-lg border border-black/15 px-3 text-sm select-none dark:border-white/15"
-          title="Encode ² ³ as the power form (^) rather than the literal superscript glyph"
-        >
-          <input
-            type="checkbox"
-            checked={compatibility}
-            onChange={(e) => setCompatibility(e.target.checked)}
-            className="size-4 accent-emerald-600"
-          />
-          <span>Compatibility mode</span>
-        </label>
-
-        <span className="text-xs text-black/40 dark:text-white/40">
-          Format &amp; compatibility apply to the whole project.
-        </span>
-      </section>
-
       {/* Math toolbar */}
       <section className="flex flex-wrap gap-2">
         {MATH_BUTTONS.map((b) => (
@@ -426,7 +393,13 @@ export default function EactMaker() {
             <button
               key={p.id}
               type="button"
-              onClick={() => setActiveTab(p.id)}
+              onClick={() =>
+                setActiveTab((cur) => (cur === p.id ? null : p.id))
+              }
+              title={
+                activeTab === p.id ? `Hide ${p.label}` : `Show ${p.label}`
+              }
+              aria-expanded={activeTab === p.id}
               className={`rounded-md px-3 py-1 text-sm transition ${
                 activeTab === p.id
                   ? "bg-emerald-600 text-white"
@@ -437,46 +410,33 @@ export default function EactMaker() {
             </button>
           ))}
         </div>
-        <div className="flex max-h-44 flex-wrap gap-1 overflow-y-auto p-3">
-          {PALETTES.filter((p) => p.id === activeTab).map((p) =>
-            p.items.map((item) => (
-              <button
-                key={item.insert}
-                type="button"
-                title={item.title}
-                onClick={() => insert({ pre: item.insert })}
-                className="flex size-9 items-center justify-center rounded-md border border-black/10 bg-white text-base hover:border-emerald-500 hover:bg-emerald-50 dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-emerald-500/10"
-              >
-                {item.label}
-              </button>
-            )),
-          )}
-        </div>
+        {activeTab != null && (
+          <div className="flex max-h-44 flex-wrap gap-1 overflow-y-auto p-3">
+            {PALETTES.filter((p) => p.id === activeTab).map((p) =>
+              p.items.map((item) => (
+                <button
+                  key={item.insert}
+                  type="button"
+                  title={item.title}
+                  onClick={() => insert({ pre: item.insert })}
+                  className="flex size-9 items-center justify-center rounded-md border border-black/10 bg-white text-base hover:border-emerald-500 hover:bg-emerald-50 dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-emerald-500/10"
+                >
+                  {item.label}
+                </button>
+              )),
+            )}
+          </div>
+        )}
       </section>
 
       {/* Editor (per-file) */}
       <section className="flex flex-col gap-3">
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="font-medium">File title</span>
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="e.g. PHYSICS"
-            maxLength={32}
-            className="w-full max-w-xs rounded-lg border border-black/15 bg-white px-3 py-2 font-mono outline-none focus:border-emerald-500 dark:border-white/15 dark:bg-black"
-          />
-          <span
-            className={`text-xs ${titleOver ? "text-amber-600" : "text-black/40 dark:text-white/40"}`}
-          >
-            {titleOver
-              ? `Only the first 8 chars are used (banner: "${title.slice(0, 8)}")`
-              : "Up to 8 characters — the file name shown on the calculator"}
-          </span>
-        </label>
-
         <div className="flex flex-col gap-1">
           <span className="text-sm font-medium">
-            Editor — one eActivity line per row
+            Editor — <span className="font-mono">{title.trim() || "Untitled"}</span>
+            <span className="font-normal text-black/40 dark:text-white/40">
+              {" "}· one line per row (double-click the file name to rename)
+            </span>
           </span>
           <textarea
             ref={taRef}
