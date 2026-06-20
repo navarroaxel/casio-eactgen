@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import type { EactFile } from "@/lib/project";
 
 interface FileNavigatorProps {
@@ -15,12 +16,15 @@ interface FileNavigatorProps {
   onMoveFile: (id: string, folder: string | null) => void;
   onRenameFolder: (name: string) => void;
   onDeleteFolder: (name: string) => void;
+  onSave: () => void;
+  onLoad: (file: File) => void;
 }
 
 const fileName = (f: EactFile) => f.title.trim() || "Untitled";
 
 export function FileNavigator(props: FileNavigatorProps) {
   const { files, folders, activeId, open } = props;
+  const loadRef = useRef<HTMLInputElement>(null);
 
   if (!open) {
     const active = files.find((f) => f.id === activeId);
@@ -73,7 +77,7 @@ export function FileNavigator(props: FileNavigatorProps) {
         </button>
       </div>
 
-      <ul className="flex flex-col gap-0.5 overflow-y-auto">
+      <ul className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto">
         {rootFiles.map((f) => (
           <FileRow key={f.id} file={f} {...props} />
         ))}
@@ -119,6 +123,36 @@ export function FileNavigator(props: FileNavigatorProps) {
           </li>
         ))}
       </ul>
+
+      <div className="mt-auto flex gap-1 border-t border-black/10 pt-2 dark:border-white/10">
+        <button
+          type="button"
+          onClick={props.onSave}
+          title="Download the whole project as a .eam.json file"
+          className="flex-1 rounded-md border border-black/15 px-2 py-1 text-xs transition hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
+        >
+          Save project
+        </button>
+        <button
+          type="button"
+          onClick={() => loadRef.current?.click()}
+          title="Load a .eam.json project file"
+          className="flex-1 rounded-md border border-black/15 px-2 py-1 text-xs transition hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
+        >
+          Load project
+        </button>
+        <input
+          ref={loadRef}
+          type="file"
+          accept=".json,.eam,application/json"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) props.onLoad(f);
+            e.target.value = "";
+          }}
+        />
+      </div>
     </aside>
   );
 }

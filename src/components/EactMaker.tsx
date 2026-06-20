@@ -107,7 +107,6 @@ export default function EactMaker() {
   const [status, setStatus] = useState<string | null>(null);
 
   const taRef = useRef<HTMLTextAreaElement>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
   const pendingCaret = useRef<number | null>(null);
 
   const { format, compatibility } = project;
@@ -365,6 +364,8 @@ export default function EactMaker() {
           onMoveFile={moveFile}
           onRenameFolder={renameFolder}
           onDeleteFolder={deleteFolder}
+          onSave={handleSave}
+          onLoad={handleLoadFile}
         />
 
         <div className="flex min-w-0 flex-1 flex-col gap-5">
@@ -554,31 +555,6 @@ export default function EactMaker() {
         >
           Download this file (.{format})
         </button>
-        <button
-          type="button"
-          onClick={handleSave}
-          className="rounded-lg border border-black/15 px-4 py-2.5 transition hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
-        >
-          Save project
-        </button>
-        <button
-          type="button"
-          onClick={() => fileRef.current?.click()}
-          className="rounded-lg border border-black/15 px-4 py-2.5 transition hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
-        >
-          Load project
-        </button>
-        <input
-          ref={fileRef}
-          type="file"
-          accept=".json,.eam,application/json"
-          className="hidden"
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) handleLoadFile(f);
-            e.target.value = "";
-          }}
-        />
         {status && (
           <span className="text-sm text-black/60 dark:text-white/60">
             {status}
