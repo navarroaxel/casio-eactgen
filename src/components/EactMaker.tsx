@@ -347,7 +347,7 @@ export default function EactMaker() {
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 p-4 sm:p-6">
       <Header />
 
-      <div className="flex items-start gap-5">
+      <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
         <FileNavigator
           files={project.files}
           folders={project.folders}

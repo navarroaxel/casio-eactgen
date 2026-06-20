@@ -25,7 +25,7 @@ export interface ProjectUi {
 }
 
 export interface Project {
-  v: 2;
+  v: 1;
   format: EactFormat; // global
   compatibility: boolean; // global
   files: EactFile[];
@@ -34,9 +34,9 @@ export interface Project {
   ui: ProjectUi;
 }
 
-export const STORAGE_KEY = "eactmaker.project.v2";
-/** Old single-file autosave key — read once so existing work survives upgrade. */
-const STORAGE_KEY_V1 = "eactmaker.project.v1";
+// Reuses the original single-file autosave key: the legacy (unversioned)
+// payload at this key is upgraded in place by migrate().
+export const STORAGE_KEY = "eactmaker.project.v1";
 
 let idCounter = 0;
 export function newId(): string {
@@ -57,7 +57,7 @@ export function newFile(partial: Partial<Omit<EactFile, "id">> = {}): EactFile {
 export function emptyProject(): Project {
   const f = newFile();
   return {
-    v: 2,
+    v: 1,
     format: "g2e",
     compatibility: false,
     files: [f],
@@ -70,7 +70,7 @@ function isObject(x: unknown): x is Record<string, unknown> {
   return !!x && typeof x === "object";
 }
 
-function coerceV2(obj: Record<string, unknown>): Project {
+function coerceV1(obj: Record<string, unknown>): Project {
   const rawFiles = Array.isArray(obj.files) ? obj.files : [];
   const files: EactFile[] = rawFiles.filter(isObject).map((f) => ({
     id: typeof f.id === "string" && f.id ? f.id : newId(),
@@ -95,7 +95,7 @@ function coerceV2(obj: Record<string, unknown>): Project {
   const navOpen = ui.navOpen === undefined ? true : Boolean(ui.navOpen);
 
   return {
-    v: 2,
+    v: 1,
     format: obj.format === "g1e" ? "g1e" : "g2e",
     compatibility: Boolean(obj.compatibility),
     files,
@@ -104,20 +104,21 @@ function coerceV2(obj: Record<string, unknown>): Project {
   };
 }
 
-/** Normalise any persisted/loaded blob into a valid v2 Project. */
+/** Normalise any persisted/loaded blob into a valid v1 Project. */
 export function migrate(data: unknown): Project {
   if (!isObject(data)) return emptyProject();
 
-  if (data.v === 2 && Array.isArray(data.files)) return coerceV2(data);
+  if (data.v === 1 && Array.isArray(data.files)) return coerceV1(data);
 
-  // v1: { title, format, compatibility, content } — wrap into one file.
+  // Legacy single-file payload (no `v`): { title, format, compatibility,
+  // content } — wrap into one file.
   if ("content" in data || "title" in data) {
     const file = newFile({
       title: typeof data.title === "string" ? data.title : "",
       content: typeof data.content === "string" ? data.content : "",
     });
     return {
-      v: 2,
+      v: 1,
       format: data.format === "g1e" ? "g1e" : "g2e",
       compatibility: Boolean(data.compatibility),
       files: [file],
@@ -132,8 +133,7 @@ export function migrate(data: unknown): Project {
 /** Load the autosaved project from localStorage (client-only). */
 export function loadProject(): Project {
   try {
-    const raw =
-      localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem(STORAGE_KEY_V1);
+    const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return emptyProject();
     return migrate(JSON.parse(raw));
   } catch {
@@ -141,7 +141,7 @@ export function loadProject(): Project {
   }
 }
 
-/** Parse a loaded .eam.json file (any version) into a v2 Project. */
+/** Parse a loaded .eam.json file (any version) into a v1 Project. */
 export function parseProjectFile(text: string): Project {
   return migrate(JSON.parse(text));
 }
