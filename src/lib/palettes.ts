@@ -116,21 +116,32 @@ const MISC = keepEncodable([
   "»",
 ]);
 
-export type Palette =
-  | { id: string; label: string; kind: "char"; items: string[] }
-  | { id: string; label: string; kind: "subscript"; items: string[] };
+export type Palette = {
+  id: string;
+  label: string;
+  /** "char" inserts the glyph as-is; "subscript"/"superscript" wrap it in `_`/`^` markup. */
+  kind: "char" | "subscript" | "superscript";
+  items: string[];
+};
 
-// Subscripts are produced via the `_` markup (e.g. clicking "₂" inserts "_2").
-const SUBSCRIPTS = "0123456789+-abcdefghijklmnopqrstuvwxyz".split("");
+// Subscripts/superscripts are produced via the `_`/`^` markup
+// (e.g. clicking "₂" inserts "_2", clicking "²" inserts "^2").
+const SCRIPT_CHARS = "0123456789+-abcdefghijklmnopqrstuvwxyz".split("");
 
 export const PALETTES: Palette[] = [
   { id: "maths", label: "Maths", kind: "char", items: MATHS },
   { id: "greek", label: "Greek", kind: "char", items: GREEK },
   {
+    id: "superscripts",
+    label: "Superscripts",
+    kind: "superscript",
+    items: SCRIPT_CHARS,
+  },
+  {
     id: "subscripts",
     label: "Subscripts",
     kind: "subscript",
-    items: SUBSCRIPTS,
+    items: SCRIPT_CHARS,
   },
   { id: "latin", label: "Latin", kind: "char", items: LATIN },
   { id: "cyrillic", label: "Cyrillic", kind: "char", items: CYRILLIC },
@@ -154,4 +165,48 @@ const SUB_GLYPH: Record<string, string> = {
 };
 export function subscriptLabel(ch: string): string {
   return SUB_GLYPH[ch] ?? `₍${ch}₎`;
+}
+
+// Map a superscript base char to its visible glyph for the button label.
+const SUP_GLYPH: Record<string, string> = {
+  "0": "⁰",
+  "1": "¹",
+  "2": "²",
+  "3": "³",
+  "4": "⁴",
+  "5": "⁵",
+  "6": "⁶",
+  "7": "⁷",
+  "8": "⁸",
+  "9": "⁹",
+  "+": "⁺",
+  "-": "⁻",
+  a: "ᵃ",
+  b: "ᵇ",
+  c: "ᶜ",
+  d: "ᵈ",
+  e: "ᵉ",
+  f: "ᶠ",
+  g: "ᵍ",
+  h: "ʰ",
+  i: "ⁱ",
+  j: "ʲ",
+  k: "ᵏ",
+  l: "ˡ",
+  m: "ᵐ",
+  n: "ⁿ",
+  o: "ᵒ",
+  p: "ᵖ",
+  r: "ʳ",
+  s: "ˢ",
+  t: "ᵗ",
+  u: "ᵘ",
+  v: "ᵛ",
+  w: "ʷ",
+  x: "ˣ",
+  y: "ʸ",
+  z: "ᶻ",
+};
+export function superscriptLabel(ch: string): string {
+  return SUP_GLYPH[ch] ?? `⁽${ch}⁾`;
 }
