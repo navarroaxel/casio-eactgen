@@ -265,15 +265,13 @@ function scriptItems(kind: "sup" | "sub"): PaletteItem[] {
       items.push({ insert: glyph, label: glyph, title: `${word} ${d}` });
     }
   }
-  // Letters: no standalone glyph in the font, so use `^x` / `_x` markup.
+  // Letters: no standalone glyph in the font, so use `^x` / `_x` markup. The
+  // tiny super/subscript letter glyphs are hard to read, so label the button
+  // with the plain letter (the tooltip shows what it inserts).
   for (const l of LETTERS) {
     const ins = `${prefix}${l}`;
     if (canEncode(ins)) {
-      items.push({
-        insert: ins,
-        label: glyphs[l] ?? l,
-        title: `${word} ${l}  (${ins})`,
-      });
+      items.push({ insert: ins, label: l, title: `${word} ${l}  (${ins})` });
     }
   }
   return items;
