@@ -9,7 +9,7 @@ import {
   type EactFormat,
 } from "@/lib/casio";
 import { applySnippet, type Snippet } from "@/lib/insertAtCaret";
-import { PALETTES, subscriptLabel, superscriptLabel } from "@/lib/palettes";
+import { PALETTES } from "@/lib/palettes";
 import { GitHubLink } from "./GitHubLink";
 
 const STORAGE_KEY = "eactmaker.project.v1";
@@ -336,35 +336,17 @@ export default function EactMaker() {
         </div>
         <div className="flex max-h-44 flex-wrap gap-1 overflow-y-auto p-3">
           {PALETTES.filter((p) => p.id === activeTab).map((p) =>
-            p.items.map((ch) => {
-              const prefix =
-                p.kind === "subscript"
-                  ? "_"
-                  : p.kind === "superscript"
-                    ? "^"
-                    : "";
-              const label =
-                p.kind === "subscript"
-                  ? subscriptLabel(ch)
-                  : p.kind === "superscript"
-                    ? superscriptLabel(ch)
-                    : ch;
-              const title =
-                p.kind === "char"
-                  ? ch
-                  : `${p.kind} ${ch}  (inserts ${prefix}${ch})`;
-              return (
-                <button
-                  key={ch}
-                  type="button"
-                  title={title}
-                  onClick={() => insert({ pre: `${prefix}${ch}` })}
-                  className="flex size-9 items-center justify-center rounded-md border border-black/10 bg-white text-base hover:border-emerald-500 hover:bg-emerald-50 dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-emerald-500/10"
-                >
-                  {label}
-                </button>
-              );
-            }),
+            p.items.map((ch) => (
+              <button
+                key={ch}
+                type="button"
+                title={ch}
+                onClick={() => insert({ pre: ch })}
+                className="flex size-9 items-center justify-center rounded-md border border-black/10 bg-white text-base hover:border-emerald-500 hover:bg-emerald-50 dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-emerald-500/10"
+              >
+                {ch}
+              </button>
+            )),
           )}
         </div>
       </section>
