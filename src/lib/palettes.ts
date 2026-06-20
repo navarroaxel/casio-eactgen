@@ -116,6 +116,8 @@ const MISC = keepEncodable([
   "¡",
   "«",
   "»",
+  "【",
+  "】",
 ]);
 
 export interface PaletteItem {
