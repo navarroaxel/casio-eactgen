@@ -20,16 +20,12 @@ function range(from: number, to: number): string[] {
 
 const keepEncodable = (chars: string[]) => chars.filter(canEncode);
 
-// Greek alphabet in alphabetical order, each letter as lowercase then uppercase
-// (α Α, β Β, … ω Ω). 0x03A2 is an unassigned codepoint, so it is skipped.
-const GREEK = keepEncodable(
-  range(0x0391, 0x03a9)
-    .filter((c) => c.codePointAt(0) !== 0x03a2)
-    .flatMap((upper) => [
-      String.fromCodePoint(upper.codePointAt(0)! + 0x20),
-      upper,
-    ]),
-);
+// Greek alphabet: all uppercase first (Α … Ω), then all lowercase (α … ω).
+// 0x03A2 is an unassigned codepoint, so it is skipped.
+const GREEK = keepEncodable([
+  ...range(0x0391, 0x03a9).filter((c) => c.codePointAt(0) !== 0x03a2), // Α … Ω
+  ...range(0x03b1, 0x03c9), // α … ω
+]);
 
 const CYRILLIC = keepEncodable([
   ...range(0x0410, 0x044f), // А … я

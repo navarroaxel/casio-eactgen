@@ -102,6 +102,9 @@ const EACT_OVERRIDE: Record<string, number> = {
   "▽": 0xe6da,
   "+": 0x89, // Addition token (not ASCII 0x2B)
   ℇ: 0xe5b0, // Euler constant (\bolde;)
+  // chars.toml maps E640 ("Greek Small Letter Alpha") to U+0251 (Latin ɑ), not
+  // the Greek α (U+03B1), so plain α has no table entry — fix it here.
+  α: 0xe640,
 };
 
 /** text[i] must be "{"; return [inner, indexAfterClosingBrace], brace-balanced. */
