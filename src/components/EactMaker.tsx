@@ -336,15 +336,15 @@ export default function EactMaker() {
         </div>
         <div className="flex max-h-44 flex-wrap gap-1 overflow-y-auto p-3">
           {PALETTES.filter((p) => p.id === activeTab).map((p) =>
-            p.items.map((ch) => (
+            p.items.map((item) => (
               <button
-                key={ch}
+                key={item.insert}
                 type="button"
-                title={ch}
-                onClick={() => insert({ pre: ch })}
+                title={item.title}
+                onClick={() => insert({ pre: item.insert })}
                 className="flex size-9 items-center justify-center rounded-md border border-black/10 bg-white text-base hover:border-emerald-500 hover:bg-emerald-50 dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-emerald-500/10"
               >
-                {ch}
+                {item.label}
               </button>
             )),
           )}
