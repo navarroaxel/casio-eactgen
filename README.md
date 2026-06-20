@@ -1,36 +1,118 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Eact Maker — CASIO eActivity generator (web)
 
-## Getting Started
+*[Versión en español](README.es.md)*
 
-First, run the development server:
+A browser-based tool to build CASIO **eActivity** files (`.g2e` / `.g1e`) for fx-9860G–series
+graphing calculators. Write your formulas with a small LaTeX-like markup, preview the result, and
+download a file you can transfer to the calculator — all **client-side**, no server, nothing leaves
+your machine.
+
+It's a modern re-creation of the online
+[EactMaker](https://tools.planet-casio.com/EactMaker/) tool by Helder7 and Ziqumu. The encoder is a
+direct port of the reverse-engineered [`casio-eactgen-py`](../casio-eactgen-py) generator, and its
+output is **byte-identical** to both the Python reference and real EactMaker output (verified by
+`npm run test:parity`).
+
+> **Extensions.** The fx-9860G**III** opens **both `.g1e` and `.g2e`** — the two containers are
+> byte-structurally identical; only the extension differs (`.g2e` is the native format for the
+> GII/GIII, `.g1e` is the older fx-9860G format). `.g2e` is the safe default. If a file won't open,
+> the cause is the *contents*, not the extension.
+
+## Features
+
+- **Live editor** — one eActivity line per row, with a math toolbar (√, fraction, sub/superscript,
+  Σ, matrix, log, |a|, derivatives, integral, note) and character palettes (Maths, Greek,
+  Subscripts, Latin, Cyrillic, Misc).
+- **Live preview & validation** — decodes your input back to readable text, shows the output size,
+  and flags any character the CASIO font table can't represent *before* you convert.
+- **Convert & download** — generates the `.g2e`/`.g1e` file in the browser.
+- **Save / Load project** — store your work as a `.eam.json` file; the editor also autosaves to
+  `localStorage` and restores on reload.
+
+## Getting started
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run gen:chars      # build the character table JSON from ../casio-eactgen-py/chars.toml
+npm run dev            # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+`npm run gen:chars` only needs to be run once (the generated JSON is committed); re-run it if
+`../casio-eactgen-py/chars.toml` changes.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## How to use
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Enter a **Title** (≤8 chars — it becomes the `======TITLE======` banner and the on-calculator name).
+2. Type your formulas in the editor, one eActivity line per row. Use the toolbar/palette buttons or
+   type the markup directly.
+3. Pick a **Format** (`.g2e` default, or `.g1e`).
+4. Click **Convert & download**, then copy the file to the calculator (USB mass storage / Link /
+   FA-124) and open it from the eActivity menu.
 
-## Learn More
+**Compatibility mode** toggles how `²` `³` are encoded: off → the literal superscript glyph;
+on → the power form (`^`). It maps to the encoder's `literalSuper` option.
 
-To learn more about Next.js, take a look at the following resources:
+## Markup
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| You write | Result |
+|-----------|--------|
+| `\frac{a}{b}` | stacked fraction |
+| `½ ⅓ ¼ …` | stacked fraction (vulgar-fraction glyphs) |
+| `\sqrt{x}` | square root |
+| `\abs{x}` | absolute value / modulus |
+| `\int{lo}{hi}{f}` | integral (any arg may be empty: `\int{}{x=V}{f}`) |
+| `\log{a}{b}` | log base *a* of *b* |
+| `\sum{n}{k}{0}{a}` | sum (count, variable, start, expression) |
+| `\mat{a&b}{c&d}` | matrix (rows in `{}`, cells split by `&`) |
+| `\diff{a}{b}` / `\diff2{a}{b}` | 1st / 2nd derivative of *a* in *b* |
+| `\note{title}{body}` | note / memo strip (own line) |
+| `^2`, `^{n+1}` | superscript / power |
+| `_v`, `_{12}` | subscript (letters and digits) |
+| `²` `³` | superscript glyphs |
+| `∇ ∂ · ⇒ ε μ π σ ρ θ Ω …` | typed directly as Unicode |
+| `\nabla \partial \epsilon \pi \sigma …` | LaTeX names, if easier to type |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Plain ASCII passes through unchanged. The palettes only offer glyphs the CASIO font can represent.
 
-## Deploy on Vercel
+## Limitations
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- Only **G1E / G2E** are supported. The legacy site's G3E / FLS / XCP / CAT formats are *not*
+  implemented (they are unimplemented in the Python reference too).
+- Not every Unicode character has a CASIO mapping (e.g. `∞`, `α`). The preview reports these; the
+  Python reference behaves identically.
+- An empty note body (`\note{T}{}`) is degenerate in EactMaker — give notes a body.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Architecture
+
+| Path | What |
+|------|------|
+| `src/lib/casio/` | TypeScript encoder — `encode`, `note`, `container`, `decode`, `chars`, `index`. A faithful port of `../casio-eactgen-py/casio_translate.py`. |
+| `src/lib/casio/chars.generated.json` | Unicode↔CASIO maps, generated from `chars.toml`. |
+| `scripts/gen-chars.mjs` | Build step that produces the JSON (`npm run gen:chars`). |
+| `scripts/parity.ts` | Byte-parity test vs. the Python reference (`npm run test:parity`). |
+| `src/components/EactMaker.tsx` | The editor UI (client-only). |
+
+Everything runs in the browser; there is no backend. See [`AGENTS.md`](AGENTS.md) for the format
+internals and contributor notes, and [`../casio-eactgen-py`](../casio-eactgen-py) for the reference
+implementation and the full reverse-engineered binary-format spec.
+
+### Scripts
+
+```bash
+npm run dev          # dev server
+npm run gen:chars    # regenerate chars.generated.json from chars.toml
+npm run test:parity  # verify TS output is byte-identical to the Python reference
+npm run build        # production build
+npm run lint         # eslint
+```
+
+## Credits
+
+- Character table: the [Cahute](https://cahute.org) project (Thomas Touhey), CeCILL 2.1.
+- Format inspired by / verified against [EactMaker](https://tools.planet-casio.com/EactMaker/)
+  by Helder7 and Ziqumu, and SimonLothar's reverse-engineering work.
+
+## Disclaimer
+
+CASIO and fx-9860G are trademarks of CASIO Computer Co., Ltd. This is an independent, unofficial
+tool. Keep backups of the files on your calculator.
