@@ -23,9 +23,21 @@ interface FileNavigatorProps {
   onDeleteFolder: (name: string) => void;
   onSetFormat: (format: EactFormat) => void;
   onSetCompatibility: (value: boolean) => void;
+  // Fallback (download/upload) — used when the File System Access API is absent.
   onSave: () => void;
   onLoad: (file: File) => void;
+  // File System Access: link the project to a file on disk and auto-save there.
+  fsSupported: boolean;
+  linkStatus: LinkStatus;
+  linkedName: string | null;
+  onLinkSave: () => void;
+  onOpenDisk: () => void;
+  onReconnect: () => void;
+  onUnlink: () => void;
 }
+
+/** "none" = not linked; "linked" = auto-saving; "needs-permission" = reconnect. */
+export type LinkStatus = "none" | "linked" | "needs-permission";
 
 const FORMATS: { value: EactFormat; label: string }[] = [
   { value: "g2e", label: "G2E" },
@@ -177,34 +189,88 @@ export function FileNavigator(props: FileNavigatorProps) {
         ))}
       </ul>
 
-      <div className="mt-auto flex gap-1 border-t border-black/10 pt-2 dark:border-white/10">
-        <button
-          type="button"
-          onClick={props.onSave}
-          title="Download the whole project as a .eam.json file"
-          className="flex-1 rounded-md border border-black/15 px-2 py-1 text-xs transition hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
-        >
-          Save project
-        </button>
-        <button
-          type="button"
-          onClick={() => loadRef.current?.click()}
-          title="Load a .eam.json project file"
-          className="flex-1 rounded-md border border-black/15 px-2 py-1 text-xs transition hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
-        >
-          Load project
-        </button>
-        <input
-          ref={loadRef}
-          type="file"
-          accept=".json,.eam,application/json"
-          className="hidden"
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) props.onLoad(f);
-            e.target.value = "";
-          }}
-        />
+      <div className="mt-auto flex flex-col gap-1 border-t border-black/10 pt-2 dark:border-white/10">
+        {props.fsSupported ? (
+          <>
+            <div className="flex gap-1">
+              <button
+                type="button"
+                onClick={props.onLinkSave}
+                title="Save to a file on disk and keep auto-saving there"
+                className="flex-1 rounded-md border border-black/15 px-2 py-1 text-xs transition hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
+              >
+                Save to file…
+              </button>
+              <button
+                type="button"
+                onClick={props.onOpenDisk}
+                title="Open a .eam.json project from disk"
+                className="flex-1 rounded-md border border-black/15 px-2 py-1 text-xs transition hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
+              >
+                Open from file…
+              </button>
+            </div>
+            {props.linkStatus === "linked" && (
+              <div className="flex items-center gap-1 px-1 text-xs text-emerald-700 dark:text-emerald-400">
+                <span aria-hidden>●</span>
+                <span className="min-w-0 flex-1 truncate" title={props.linkedName ?? undefined}>
+                  Auto-saving to {props.linkedName}
+                </span>
+                <button
+                  type="button"
+                  onClick={props.onUnlink}
+                  title="Stop auto-saving to this file"
+                  className="rounded px-1 text-black/40 hover:bg-black/10 dark:text-white/40 dark:hover:bg-white/10"
+                >
+                  ×
+                </button>
+              </div>
+            )}
+            {props.linkStatus === "needs-permission" && (
+              <button
+                type="button"
+                onClick={props.onReconnect}
+                title="Re-grant access to resume auto-saving"
+                className="rounded-md border border-amber-500/50 px-2 py-1 text-xs text-amber-700 transition hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-500/10"
+              >
+                Reconnect {props.linkedName}
+              </button>
+            )}
+            <p className="px-1 text-[11px] leading-tight text-black/40 dark:text-white/40">
+              Tip: save into a Google Drive / Dropbox folder to sync across devices.
+            </p>
+          </>
+        ) : (
+          <div className="flex gap-1">
+            <button
+              type="button"
+              onClick={props.onSave}
+              title="Download the whole project as a .eam.json file"
+              className="flex-1 rounded-md border border-black/15 px-2 py-1 text-xs transition hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
+            >
+              Save project
+            </button>
+            <button
+              type="button"
+              onClick={() => loadRef.current?.click()}
+              title="Load a .eam.json project file"
+              className="flex-1 rounded-md border border-black/15 px-2 py-1 text-xs transition hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
+            >
+              Load project
+            </button>
+            <input
+              ref={loadRef}
+              type="file"
+              accept=".json,.eam,application/json"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) props.onLoad(f);
+                e.target.value = "";
+              }}
+            />
+          </div>
+        )}
       </div>
     </aside>
 
@@ -259,6 +325,14 @@ function FileRow({
       {folders.length > 0 && (
         <MoveMenu file={file} folders={folders} onMoveFile={onMoveFile} />
       )}
+      <button
+        type="button"
+        onClick={() => onEdit(file.id)}
+        title="Rename file"
+        className="rounded px-1 text-sm opacity-0 transition group-hover:opacity-100 hover:bg-black/10 dark:hover:bg-white/10"
+      >
+        ✎
+      </button>
       <button
         type="button"
         onClick={() => {

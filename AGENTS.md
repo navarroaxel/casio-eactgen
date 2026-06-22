@@ -29,7 +29,7 @@ clone of that repo at `../casio-eactgen-py` (next to this repo); `gen:chars` als
 | `src/lib/casio/chars.ts` | loads the generated maps |
 | `src/lib/casio/index.ts` | public API: `buildEact`, `encode`, `encodeLine`, `decode`, `splitlines` |
 
-**Any change to the encoder must keep `npm run test:parity` green.** That test
+**Any change to the encoder must keep `npm test` green.** That test
 (`scripts/parity.ts`) byte-compares this TS output against live Python output over the whole of
 `../casio-eactgen-py/input.txt` (every line in both superscript modes, plus the full container incl.
 notes across several titles). It is the contract: byte-for-byte equality with the Python reference,
@@ -54,6 +54,16 @@ don't move `localStorage` reads into effects or render EactMaker on the server.
   palette button can never produce a character the encoder rejects.
 - Snippet insertion (`src/lib/insertAtCaret.ts`) is pure; the component restores the caret via a
   `pendingCaret` ref in a post-render effect.
+- `src/lib/fsAccess.ts` wraps the File System Access API plus an IndexedDB handle store. Two
+  optional disk links, both Chromium-only and both transient *device* state never serialized into
+  the `Project` JSON (which stays portable): (1) a linked `.eam.json` **file** handle that
+  auto-saves the project source (FileNavigator footer), and (2) a mapped output **directory** handle
+  that `syncToDir` writes the compiled `.g2e`/`.g1e` files into (Actions section). Both debounce
+  writes ~1.2s and, because FS permission isn't persisted across loads, surface a "Reconnect"
+  affordance on mount. The directory sync recreates `planExport` subfolders and prunes orphaned
+  output (moved/renamed/deleted files, plus folders it empties) — but only paths it previously
+  wrote, tracked in `localStorage` (`eactmaker.syncpaths.v1`), so pre-existing files in the chosen
+  folder are never touched. Non-Chromium falls back to download/upload + ZIP. Still no backend.
 
 ## Gotchas learned here
 
@@ -72,7 +82,7 @@ don't move `localStorage` reads into effects or render EactMaker on the server.
 ```bash
 npm run dev          # dev server
 npm run gen:chars    # regenerate chars.generated.json
-npm run test:parity  # byte-parity vs the Python reference (run after touching the encoder)
+npm test  # byte-parity vs the Python reference (run after touching the encoder)
 npm run build        # production build
 npm run lint         # eslint
 ```
