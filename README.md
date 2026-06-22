@@ -28,6 +28,15 @@ output is **byte-identical** to both the Python reference and real EactMaker out
 - **Convert & download** — generates the `.g2e`/`.g1e` file in the browser.
 - **Save / Load project** — store your work as a `.eam.json` file; the editor also autosaves to
   `localStorage` and restores on reload.
+- **Save to file & auto-save** — in Chromium browsers (Chrome/Edge), link the project to a
+  `.eam.json` on disk and it auto-saves there as you work. **Tip:** save into a Google Drive /
+  Dropbox / OneDrive *synced* folder to keep your project in the cloud and across devices — no
+  account, login, or backend required. Firefox/Safari fall back to manual Save / Load download.
+- **Sync to folder** — also in Chromium, map the project to a folder on disk: the compiled
+  `.g2e`/`.g1e` files (with project subfolders recreated) are written there and re-synced as you
+  edit, so a Drive-synced folder always holds calculator-ready files. Moving, renaming, or deleting
+  a file removes its stale output (and any folder it empties) — only files this app wrote are ever
+  deleted, so other files in the folder are left untouched.
 
 ## Getting started
 

@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "gen:chars": "node scripts/gen-chars.mjs",
-    "test:parity": "tsx scripts/parity.ts"
+    "test": "tsx scripts/parity.ts"
   },
   "dependencies": {
     "@vercel/analytics": "^2.0.1",
