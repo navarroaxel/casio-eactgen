@@ -23,17 +23,26 @@ clone of that repo at `../casio-eactgen-py` (next to this repo); `gen:chars` als
 | File | Mirrors (Python) |
 |------|------------------|
 | `src/lib/casio/encode.ts` | `_encode_run`, `encode`, `_emit_char`, `_emit_subscript`, `encode_line`, markup parsers, `LATEX`/`SUPERS`/`VULGAR`/`EACT_OVERRIDE` |
-| `src/lib/casio/note.ts` | `build_note_content` + `_NOTE_*` templates |
+| `src/lib/casio/note.ts` | `build_note_content` + `_NOTE_*` templates (`parseNoteContent` is the TS-only inverse) |
 | `src/lib/casio/container.ts` | `fix_header`, `_EACT_PREFIX`, `build_eact` |
-| `src/lib/casio/decode.ts` | `decode` (used by the preview) |
+| `src/lib/casio/decode.ts` | `decode` (used by the preview); `decodeMarkup` is the TS-only import inverse of `encodeRun` |
+| `src/lib/casio/parse.ts` | TS-only: `parseEact` — the inverse of `build_eact` (no Python counterpart) |
 | `src/lib/casio/chars.ts` | loads the generated maps |
-| `src/lib/casio/index.ts` | public API: `buildEact`, `encode`, `encodeLine`, `decode`, `splitlines` |
+| `src/lib/casio/index.ts` | public API: `buildEact`, `encode`, `encodeLine`, `decode`, `decodeMarkup`, `parseEact`, `splitlines` |
 
-**Any change to the encoder must keep `npm test` green.** That test
-(`scripts/parity.ts`) byte-compares this TS output against live Python output over the whole of
-`../casio-eactgen-py/input.txt` (every line in both superscript modes, plus the full container incl.
-notes across several titles). It is the contract: byte-for-byte equality with the Python reference,
-which is itself verified byte-identical to real EactMaker output.
+**Any change to the encoder must keep `npm test` green.** It runs two contracts:
+
+1. `scripts/parity.ts` byte-compares this TS output against live Python output over the whole of
+   `../casio-eactgen-py/input.txt` (every line in both superscript modes, plus the full container
+   incl. notes across several titles) — byte-for-byte equality with the Python reference, which is
+   itself verified byte-identical to real EactMaker output.
+2. `scripts/parity-roundtrip.ts` (`npm run test:roundtrip`) proves **import** is the byte-exact
+   inverse of build: `buildEact → parseEact → buildEact` is byte-identical over the same corpus (all
+   formats, both superscript modes). Import is **lossless as bytes but lossy as text** — there is no
+   Python reference for it (the `.py` is encoder-only), so the round-trip *is* its contract. The
+   reconstructed markup deliberately normalises ambiguous forms: `²`→`^{2}`, `½`→`\frac{1}{2}`,
+   subscripts→`_{…}`, override glyphs→their canonical source char (`▽`→`∇`, `ɑ`→`α`). Bytes with no
+   markup form at all decode to a visible `\xHH` escape and set the `lossy` flag.
 
 ## Character table
 
@@ -64,6 +73,12 @@ don't move `localStorage` reads into effects or render EactMaker on the server.
   output (moved/renamed/deleted files, plus folders it empties) — but only paths it previously
   wrote, tracked in `localStorage` (`eactmaker.syncpaths.v1`), so pre-existing files in the chosen
   folder are never touched. Non-Chromium falls back to download/upload + ZIP. Still no backend.
+- **Import** ("Import .g*e…" in the FileNavigator footer): `handleImportEact` runs each picked file
+  through `parseEact` and appends one editable `EactFile` per container (banner → name, falling back
+  to the filename). Uses a plain multi-file `<input>` — read-only, no File System Access API, so it
+  works in every browser. Detected format is reported but does **not** change the project's global
+  format (cells are format-independent). Files with undecodable bytes still import (with `\xHH`
+  placeholders) and surface a status warning rather than being dropped.
 
 ## Gotchas learned here
 
@@ -86,9 +101,10 @@ don't move `localStorage` reads into effects or render EactMaker on the server.
 ## Commands
 
 ```bash
-npm run dev          # dev server
-npm run gen:chars    # regenerate chars.generated.json
-npm test  # byte-parity vs the Python reference (run after touching the encoder)
-npm run build        # production build
-npm run lint         # eslint
+npm run dev            # dev server
+npm run gen:chars      # regenerate chars.generated.json
+npm test               # byte-parity vs Python + import round-trip (run after touching the encoder)
+npm run test:roundtrip # just the build→parse→build byte round-trip
+npm run build          # production build
+npm run lint           # eslint
 ```

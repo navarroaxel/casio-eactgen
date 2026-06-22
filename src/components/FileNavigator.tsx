@@ -26,6 +26,8 @@ interface FileNavigatorProps {
   // Fallback (download/upload) — used when the File System Access API is absent.
   onSave: () => void;
   onLoad: (file: File) => void;
+  // Import compiled .g1e/.g2e/.g3e eActivities back into editable files.
+  onImport: (files: FileList) => void;
   // File System Access: link the project to a file on disk and auto-save there.
   fsSupported: boolean;
   linkStatus: LinkStatus;
@@ -50,6 +52,7 @@ const fileName = (f: EactFile) => f.title.trim() || "Untitled";
 export function FileNavigator(props: FileNavigatorProps) {
   const { files, folders, activeId, open } = props;
   const loadRef = useRef<HTMLInputElement>(null);
+  const importRef = useRef<HTMLInputElement>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const editing = editingId ? files.find((f) => f.id === editingId) : undefined;
@@ -272,6 +275,28 @@ export function FileNavigator(props: FileNavigatorProps) {
             />
           </div>
         )}
+        {/* Import compiled eActivities back into editable files — works in
+            every browser (read-only file input, no File System Access API). */}
+        <button
+          type="button"
+          onClick={() => importRef.current?.click()}
+          title="Import .g1e / .g2e / .g3e files made elsewhere or on the calculator"
+          className="rounded-md border border-black/15 px-2 py-1 text-xs transition hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
+        >
+          Import .g*e…
+        </button>
+        <input
+          ref={importRef}
+          type="file"
+          accept=".g1e,.g2e,.g3e"
+          multiple
+          className="hidden"
+          onChange={(e) => {
+            const files = e.target.files;
+            if (files && files.length > 0) props.onImport(files);
+            e.target.value = "";
+          }}
+        />
       </div>
     </aside>
 

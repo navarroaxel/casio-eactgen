@@ -75,3 +75,43 @@ export function buildNoteContent(
     ...content.slice(mark + 8),
   ];
 }
+
+const TEXT1_SIG = [0x54, 0x45, 0x58, 0x54, 0x31]; // "TEXT1"
+
+function indexOfSeq(hay: number[], needle: number[], from = 0): number {
+  outer: for (let i = from; i + needle.length <= hay.length; i++) {
+    for (let k = 0; k < needle.length; k++)
+      if (hay[i + k] !== needle[k]) continue outer;
+    return i;
+  }
+  return -1;
+}
+
+/**
+ * Inverse of buildNoteContent: pull the title + body byte runs back out of a
+ * type-0x06 note cell. Trailing zero padding is left in (decodeMarkup drops
+ * 0x00), so no length arithmetic is needed.
+ *   title — from byte 16 (after NOTE_PREFIX16) up to the ab cd ef 89 marker.
+ *   body  — after TEXT1 sig + 8-byte name + 4-byte size + 16-byte NOTE_ITEM.
+ */
+export function parseNoteContent(cell: number[]): {
+  titleBytes: number[];
+  bodyBytes: number[];
+} {
+  let m = 16;
+  while (
+    m + 3 < cell.length &&
+    !(
+      cell[m] === 0xab &&
+      cell[m + 1] === 0xcd &&
+      cell[m + 2] === 0xef &&
+      cell[m + 3] === 0x89
+    )
+  )
+    m += 1;
+  const titleBytes = cell.slice(16, m);
+
+  const t = indexOfSeq(cell, TEXT1_SIG, m);
+  const bodyBytes = t >= 0 ? cell.slice(t + 8 + 4 + 16) : [];
+  return { titleBytes, bodyBytes };
+}

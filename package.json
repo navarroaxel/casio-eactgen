@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "gen:chars": "node scripts/gen-chars.mjs",
-    "test": "tsx scripts/parity.ts"
+    "test": "tsx scripts/parity.ts && tsx scripts/parity-roundtrip.ts",
+    "test:roundtrip": "tsx scripts/parity-roundtrip.ts"
   },
   "dependencies": {
     "@vercel/analytics": "^2.0.1",
