@@ -15,5 +15,9 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npx tsc --noEmit
+      - uses: actions/checkout@v6
+        with:
+          repository: navarroaxel/casio-eactgen-py
+          path: ../casio-eactgen-py
       - run: npm test
       - run: npm run build
