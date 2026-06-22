@@ -107,6 +107,51 @@ const EACT_OVERRIDE: Record<string, number> = {
   α: 0xe640,
 };
 
+/** Push a FONTCHARACTER code as one byte, or two (big-endian) if > 0xFF. */
+function pushCode(out: number[], code: number): void {
+  if (code > 0xff) out.push(code >> 8, code & 0xff);
+  else out.push(code);
+}
+
+// CASIO glyphs that have no single-codepoint Unicode form, so build_maps() can't
+// put them in `enc`. Two flavours, both mapping straight to their FONTCHARACTER
+// code (chars.toml): multi-codepoint Unicode sequences (a base letter + combining
+// mark, or ⁻¹), and `\token;` markup for glyphs with no Unicode at all. Matched
+// longest-first at the top of encodeRun so e.g. "\subs0;" wins over a bare "\".
+const RAW_SEQ: ReadonlyArray<readonly [string, number]> = [
+  ["\\subs0;", 0xe5cd], // small subscript 0 (no Unicode form)
+  ["\\subs1;", 0xe5ce], // small subscript 1
+  ["\\subs2;", 0xe5cf], // small subscript 2
+  ["\\supr3;", 0xe5df], // special superscript 3 (no Unicode form)
+  ["\\s10;", 0xb5], // small "10" (×10ⁿ); chars.toml unicode is "10", not a glyph
+  ["\\sE;", 0x0f], // scientific E ("10 to the power of"), no Unicode form
+  // Misc tab: CASIO-only glyphs (negative-video letters/signs, GRAPH bold
+  // letters, wide comma, serif r). Astral or no-Unicode, so tokenised here.
+  // NB: the negative-video tokens use an "nv" prefix, not "neg", because the
+  // LATEX pass (run before encodeRun) would rewrite the "\ne" in "\negB;" to ≠.
+  ["\\nvB;", 0xe5b5], // negative-video B
+  ["\\nvR;", 0xe5a1], // negative-video R
+  ["\\nvL;", 0xe5b7], // negative-video L
+  ["\\nvEq;", 0xe5b8], // negative-video =
+  ["\\nvLt;", 0xe5b9], // negative-video <
+  ["\\nvGt;", 0xe5ba], // negative-video >
+  ["\\nvLE;", 0xe5bb], // negative-video ≤
+  ["\\nvGE;", 0xe5bc], // negative-video ≥
+  ["\\boldP;", 0xe5b1], // bold P (probability)
+  ["\\boldr;", 0xe5b2], // bold r (regression)
+  ["\\boldX;", 0xe5b3], // bold X (graph)
+  ["\\boldY;", 0xe5b4], // bold Y (graph)
+  ["\\serifr;", 0xcd], // serif r
+  ["\\lgComma;", 0xe5bd], // wide comma
+  ["x̅", 0xc2], // x̄  mean of x
+  ["y̅", 0xc3], // ȳ  mean of y
+  ["x̂", 0xcb], // x̂  estimated x
+  ["ŷ", 0xcc], // ŷ  estimated y
+  ["p̂", 0x7fc7], // p̂  estimated sample proportion
+  ["⁻¹", 0xe5ca], // ⁻¹  Superscript Minus One (single glyph)
+  ["ŷ", 0xcc], // ŷ precomposed (U+0177) -> same glyph as decomposed y+̂
+];
+
 /** text[i] must be "{"; return [inner, indexAfterClosingBrace], brace-balanced. */
 function readGroup(text: string, i: number): [string, number] {
   if (text[i] !== "{") throw new Error("expected { at position " + i);
@@ -142,9 +187,7 @@ function emitChar(ch: string, out: number[], literalSuper: boolean): void {
     return;
   }
   if (ch in EACT_OVERRIDE) {
-    const code = EACT_OVERRIDE[ch];
-    if (code > 0xff) out.push(code >> 8, code & 0xff);
-    else out.push(code);
+    pushCode(out, EACT_OVERRIDE[ch]);
     return;
   }
   if (ch in SUPERS && literalSuper) {
@@ -161,8 +204,7 @@ function emitChar(ch: string, out: number[], literalSuper: boolean): void {
     throw new Error(
       `no CASIO mapping for U+${o.toString(16).toUpperCase()} ${ch}`,
     );
-  if (code > 0xff) out.push(code >> 8, code & 0xff);
-  else out.push(code);
+  pushCode(out, code);
 }
 
 /** Subscript run: digit -> E5(D0+d), +/- -> E5 DB/DC, letter -> E7|ord. */
@@ -181,6 +223,12 @@ function encodeRun(text: string, literalSuper: boolean): number[] {
   let i = 0;
   const n = text.length;
   while (i < n) {
+    const raw = RAW_SEQ.find(([seq]) => text.startsWith(seq, i));
+    if (raw) {
+      pushCode(out, raw[1]);
+      i += raw[0].length;
+      continue;
+    }
     if (text.startsWith("\\frac{", i)) {
       const [num, j] = readGroup(text, i + 5);
       if (j >= n || text[j] !== "{")

@@ -9,7 +9,7 @@ your machine.
 
 It's a modern re-creation of the online
 [EactMaker](https://tools.planet-casio.com/EactMaker/) tool by Helder7 and Ziqumu. The encoder is a
-direct port of the reverse-engineered [`casio-eactgen-py`](../casio-eactgen-py) generator, and its
+direct port of the reverse-engineered [`casio-eactgen-py`](https://github.com/navarroaxel/casio-eactgen-py) generator, and its
 output is **byte-identical** to both the Python reference and real EactMaker output (verified by
 `npm run test:parity`).
 
@@ -33,12 +33,14 @@ output is **byte-identical** to both the Python reference and real EactMaker out
 
 ```bash
 npm install
-npm run gen:chars      # build the character table JSON from ../casio-eactgen-py/chars.toml
+npm run gen:chars      # build the character table JSON from chars.toml
 npm run dev            # http://localhost:3000
 ```
 
 `npm run gen:chars` only needs to be run once (the generated JSON is committed); re-run it if
-`../casio-eactgen-py/chars.toml` changes.
+`chars.toml` changes. It reads `chars.toml` from a local clone of
+[`casio-eactgen-py`](https://github.com/navarroaxel/casio-eactgen-py) — by default `../casio-eactgen-py`
+(next to this repo); override with `CHARS_TOML=<path> npm run gen:chars`.
 
 ## How to use
 
@@ -86,14 +88,14 @@ Plain ASCII passes through unchanged. The palettes only offer glyphs the CASIO f
 
 | Path | What |
 |------|------|
-| `src/lib/casio/` | TypeScript encoder — `encode`, `note`, `container`, `decode`, `chars`, `index`. A faithful port of `../casio-eactgen-py/casio_translate.py`. |
+| `src/lib/casio/` | TypeScript encoder — `encode`, `note`, `container`, `decode`, `chars`, `index`. A faithful port of `casio_translate.py`. |
 | `src/lib/casio/chars.generated.json` | Unicode↔CASIO maps, generated from `chars.toml`. |
 | `scripts/gen-chars.mjs` | Build step that produces the JSON (`npm run gen:chars`). |
 | `scripts/parity.ts` | Byte-parity test vs. the Python reference (`npm run test:parity`). |
 | `src/components/EactMaker.tsx` | The editor UI (client-only). |
 
 Everything runs in the browser; there is no backend. See [`AGENTS.md`](AGENTS.md) for the format
-internals and contributor notes, and [`../casio-eactgen-py`](../casio-eactgen-py) for the reference
+internals and contributor notes, and [`casio-eactgen-py`](https://github.com/navarroaxel/casio-eactgen-py) for the reference
 implementation and the full reverse-engineered binary-format spec.
 
 ### Scripts

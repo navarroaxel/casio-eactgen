@@ -17,7 +17,13 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const TOML_PATH = join(__dirname, "..", "..", "casio-eactgen-py", "chars.toml");
+// The Cahute table lives in the sibling Python repo. Default to the conventional
+// `../casio-eactgen-py` layout (next to this repo); override with CHARS_TOML=<path>
+// or a positional arg when it is checked out elsewhere.
+const TOML_PATH =
+  process.argv[2] ||
+  process.env.CHARS_TOML ||
+  join(__dirname, "..", "..", "casio-eactgen-py", "chars.toml");
 const OUT_PATH = join(
   __dirname,
   "..",
@@ -109,12 +115,24 @@ function buildMaps(entries) {
   return { dec, enc };
 }
 
-const txt = readFileSync(TOML_PATH, "utf-8");
+let txt;
+try {
+  txt = readFileSync(TOML_PATH, "utf-8");
+} catch {
+  console.error(
+    `gen-chars: could not read chars.toml at ${TOML_PATH}\n` +
+      `Point it at the Cahute table with CHARS_TOML=<path> npm run gen:chars ` +
+      `(or pass the path as an argument).`,
+  );
+  process.exit(1);
+}
 const entries = loadTable(txt);
 const { dec, enc } = buildMaps(entries);
 
 mkdirSync(dirname(OUT_PATH), { recursive: true });
-writeFileSync(OUT_PATH, JSON.stringify({ enc, dec }, null, 0) + "\n");
+// 2-space indent matches the committed chars.generated.json, so re-running this
+// script produces no spurious diff.
+writeFileSync(OUT_PATH, JSON.stringify({ enc, dec }, null, 2) + "\n");
 
 console.log(`Parsed ${entries.length} char blocks`);
 console.log(

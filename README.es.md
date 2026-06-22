@@ -9,7 +9,7 @@ LaTeX, previsualiza el resultado y descarga un archivo listo para pasar a la cal
 
 Es una recreación moderna de la herramienta en línea
 [EactMaker](https://tools.planet-casio.com/EactMaker/) de Helder7 y Ziqumu. El codificador es un
-port directo del generador [`casio-eactgen-py`](../casio-eactgen-py) obtenido por ingeniería
+port directo del generador [`casio-eactgen-py`](https://github.com/navarroaxel/casio-eactgen-py) obtenido por ingeniería
 inversa, y su salida es **idéntica byte por byte** tanto a la referencia en Python como a la salida
 real de EactMaker (verificado con `npm run test:parity`).
 
@@ -34,12 +34,14 @@ real de EactMaker (verificado con `npm run test:parity`).
 
 ```bash
 npm install
-npm run gen:chars      # genera el JSON de la tabla de caracteres desde ../casio-eactgen-py/chars.toml
+npm run gen:chars      # genera el JSON de la tabla de caracteres desde chars.toml
 npm run dev            # http://localhost:3000
 ```
 
 `npm run gen:chars` solo hay que ejecutarlo una vez (el JSON generado está versionado); vuelve a
-ejecutarlo si cambia `../casio-eactgen-py/chars.toml`.
+ejecutarlo si cambia `chars.toml`. Lee `chars.toml` desde un clon local de
+[`casio-eactgen-py`](https://github.com/navarroaxel/casio-eactgen-py) — por defecto `../casio-eactgen-py`
+(junto a este repo); puedes indicar otra ruta con `CHARS_TOML=<ruta> npm run gen:chars`.
 
 ## Cómo se usa
 
@@ -90,14 +92,14 @@ representar.
 
 | Ruta | Qué es |
 |------|--------|
-| `src/lib/casio/` | Codificador en TypeScript — `encode`, `note`, `container`, `decode`, `chars`, `index`. Un port fiel de `../casio-eactgen-py/casio_translate.py`. |
+| `src/lib/casio/` | Codificador en TypeScript — `encode`, `note`, `container`, `decode`, `chars`, `index`. Un port fiel de `casio_translate.py`. |
 | `src/lib/casio/chars.generated.json` | Mapas Unicode↔CASIO, generados desde `chars.toml`. |
 | `scripts/gen-chars.mjs` | Paso de build que produce el JSON (`npm run gen:chars`). |
 | `scripts/parity.ts` | Prueba de igualdad byte a byte contra la referencia en Python (`npm run test:parity`). |
 | `src/components/EactMaker.tsx` | La interfaz del editor (solo cliente). |
 
 Todo se ejecuta en el navegador; no hay backend. Consulta [`AGENTS.md`](AGENTS.md) para los detalles
-internos del formato y notas para contribuir, y [`../casio-eactgen-py`](../casio-eactgen-py) para la
+internos del formato y notas para contribuir, y [`casio-eactgen-py`](https://github.com/navarroaxel/casio-eactgen-py) para la
 implementación de referencia y la especificación completa del formato binario obtenida por
 ingeniería inversa.
 

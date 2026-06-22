@@ -12,10 +12,13 @@ A modern re-creation of [EactMaker](https://tools.planet-casio.com/EactMaker/); 
 
 ## The encoder is a port — keep it byte-identical
 
-`src/lib/casio/` is a faithful TypeScript port of `../casio-eactgen-py/casio_translate.py`. That
+`src/lib/casio/` is a faithful TypeScript port of
+[`casio-eactgen-py`](https://github.com/navarroaxel/casio-eactgen-py)'s `casio_translate.py`. That
 Python file (and its `AGENTS.md`) is the **source of truth** for the reverse-engineered `.g2e`/`.g1e`
 binary format: standard header + checksums, the MCS directory, cell layout, and every markup→bytes
-mapping. Read it before changing encoder behaviour.
+mapping. Read it before changing encoder behaviour. The parity test and `gen:chars` expect a local
+clone of that repo at `../casio-eactgen-py` (next to this repo); `gen:chars` also accepts a
+`CHARS_TOML=<path>` override.
 
 | File | Mirrors (Python) |
 |------|------------------|
