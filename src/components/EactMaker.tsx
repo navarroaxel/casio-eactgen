@@ -967,7 +967,9 @@ function Header() {
           Eact <span className="text-emerald-600">Maker</span>
         </h1>
         <p className="text-sm text-black/50 dark:text-white/50">
-          Build CASIO fx-9860G eActivity files in your browser.
+          Write LaTeX-style math, get CASIO eActivity files (.g2e · .g1e ·
+          .g3e) for fx-9860G and fx-CG calculators — all in your browser, no
+          install.
         </p>
       </div>
       <GitHubLink />
