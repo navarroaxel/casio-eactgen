@@ -423,7 +423,10 @@ export default function EactMaker() {
         const file = byId.get(entry.id)!;
         let bytes: Uint8Array;
         try {
-          bytes = buildEact(file.title, file.content, { literalSuper: compatibility });
+          bytes = buildEact(file.title, file.content, {
+            literalSuper: compatibility,
+            format,
+          });
         } catch {
           errors.push(file.title.trim() || "Untitled");
           continue;
@@ -536,17 +539,23 @@ export default function EactMaker() {
           preview.push({ text: decode(bytes) || " ", note: false });
         }
       }
-      const bytes = buildEact(title, content, { literalSuper: compatibility });
+      const bytes = buildEact(title, content, {
+        literalSuper: compatibility,
+        format,
+      });
       return { size: bytes.length, lineCount: lines.length, preview, error };
     } catch (err) {
       error = err instanceof Error ? err.message : String(err);
       return { size: null, lineCount: lines.length, preview, error };
     }
-  }, [content, compatibility, title]);
+  }, [content, compatibility, title, format]);
 
   const handleConvert = () => {
     try {
-      const bytes = buildEact(title, content, { literalSuper: compatibility });
+      const bytes = buildEact(title, content, {
+        literalSuper: compatibility,
+        format,
+      });
       downloadBlob(
         `${safeName(title, "eact")}.${format}`,
         bytes.slice().buffer,
@@ -570,6 +579,7 @@ export default function EactMaker() {
         try {
           const bytes = buildEact(file.title, file.content, {
             literalSuper: compatibility,
+            format,
           });
           zipInput[entry.path] = bytes;
           total += bytes.length;
@@ -957,7 +967,8 @@ function Header() {
           Eact <span className="text-emerald-600">Maker</span>
         </h1>
         <p className="text-sm text-black/50 dark:text-white/50">
-          Build CASIO fx-9860G eActivity files in your browser.
+          Write LaTeX-style math, get CASIO eActivity files (.g2e · .g1e ·
+          .g3e) for fx-9860G and fx-CG calculators.
         </p>
       </div>
       <GitHubLink />
@@ -978,7 +989,7 @@ function Footer() {
         EactMaker
       </a>{" "}
       by Helder7 &amp; Ziqumu. Output is byte-identical to EactMaker (G1E /
-      G2E), generated entirely client-side from a reverse-engineered file
+      G2E / G3E), generated entirely client-side from a reverse-engineered file
       format.
     </footer>
   );

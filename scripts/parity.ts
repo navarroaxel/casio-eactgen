@@ -8,7 +8,12 @@ import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildEact, encode, splitlines } from "../src/lib/casio/index";
+import {
+  buildEact,
+  encode,
+  splitlines,
+  type EactFormat,
+} from "../src/lib/casio/index";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const PY_DIR = join(here, "..", "..", "casio-eactgen-py");
@@ -31,10 +36,14 @@ function pyEncode(text: string, literalSuper: boolean): number[] {
   return hexLine.split(/\s+/).map((h) => parseInt(h, 16));
 }
 
-function pyBuild(title: string, literalSuper: boolean): Uint8Array {
+function pyBuild(
+  title: string,
+  literalSuper: boolean,
+  format: EactFormat = "g2e",
+): Uint8Array {
   const dir = mkdtempSync(join(tmpdir(), "parity-"));
-  const outPath = join(dir, "out.g2e");
-  const args = ["build", INPUT, "--title", title, "-o", outPath];
+  const outPath = join(dir, `out.${format}`);
+  const args = ["build", INPUT, "--title", title, "--format", format, "-o", outPath];
   if (literalSuper) args.push("--literal-super");
   execFileSync("python3", [PY, ...args], { encoding: "utf-8" });
   return new Uint8Array(readFileSync(outPath));
@@ -67,25 +76,30 @@ for (const literalSuper of [false, true]) {
     pass(`all ${lines.length} lines match (literalSuper=${literalSuper})`);
 }
 
-// 2) Full-file build parity (the whole container, incl. notes + header).
+// 2) Full-file build parity (the whole container, incl. notes + header),
+//    across every supported container format.
 console.log("buildEact() full-file parity (input.txt):");
-for (const literalSuper of [false, true]) {
-  for (const title of ["TDCF", "TEST", "AB", ""]) {
-    const mine = buildEact(title, readFileSync(INPUT, "utf-8"), {
-      literalSuper,
-    });
-    const ref = pyBuild(title, literalSuper);
-    const at = eqBytes(mine, ref);
-    if (at === -1)
-      pass(
-        `title=${JSON.stringify(title)} literalSuper=${literalSuper} — ${mine.length} bytes identical`,
-      );
-    else {
-      fail(
-        `title=${JSON.stringify(title)} literalSuper=${literalSuper} differ at byte 0x${at.toString(16)} (mine=${mine.length}, ref=${ref.length})`,
-      );
-      writeFileSync(join(tmpdir(), "mine.g2e"), mine);
-      writeFileSync(join(tmpdir(), "ref.g2e"), ref);
+const FORMATS: EactFormat[] = ["g2e", "g1e", "g3e"];
+for (const format of FORMATS) {
+  for (const literalSuper of [false, true]) {
+    for (const title of ["TDCF", "TEST", "AB", ""]) {
+      const mine = buildEact(title, readFileSync(INPUT, "utf-8"), {
+        literalSuper,
+        format,
+      });
+      const ref = pyBuild(title, literalSuper, format);
+      const at = eqBytes(mine, ref);
+      if (at === -1)
+        pass(
+          `format=${format} title=${JSON.stringify(title)} literalSuper=${literalSuper} — ${mine.length} bytes identical`,
+        );
+      else {
+        fail(
+          `format=${format} title=${JSON.stringify(title)} literalSuper=${literalSuper} differ at byte 0x${at.toString(16)} (mine=${mine.length}, ref=${ref.length})`,
+        );
+        writeFileSync(join(tmpdir(), `mine.${format}`), mine);
+        writeFileSync(join(tmpdir(), `ref.${format}`), ref);
+      }
     }
   }
 }

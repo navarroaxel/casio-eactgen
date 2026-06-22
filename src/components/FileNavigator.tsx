@@ -42,6 +42,7 @@ export type LinkStatus = "none" | "linked" | "needs-permission";
 const FORMATS: { value: EactFormat; label: string }[] = [
   { value: "g2e", label: "G2E" },
   { value: "g1e", label: "G1E" },
+  { value: "g3e", label: "G3E" },
 ];
 
 const fileName = (f: EactFile) => f.title.trim() || "Untitled";
