@@ -162,8 +162,12 @@ export async function removeFileInDir(
       chain.push(cur);
     }
     await cur.removeEntry(name);
-  } catch {
-    return; // path doesn't exist anymore
+  } catch (e) {
+    // Already gone — nothing to clean up.
+    if (e instanceof DOMException && e.name === "NotFoundError") return;
+    // Permission revoked / IO error: let the caller surface it (reconnect) and
+    // keep the path tracked so cleanup is retried, rather than faking success.
+    throw e;
   }
   // Climb up removing now-empty subfolders (stop at the first non-empty one).
   for (let i = chain.length - 1; i >= 1; i--) {
@@ -212,11 +216,37 @@ function tx<T>(
   return openDb().then(
     (db) =>
       new Promise<T>((resolve, reject) => {
-        const transaction = db.transaction(STORE, mode);
-        const req = run(transaction.objectStore(STORE));
-        req.onsuccess = () => resolve(req.result);
-        req.onerror = () => reject(req.error);
-        transaction.oncomplete = () => db.close();
+        let settled = false;
+        const close = () => {
+          try {
+            db.close();
+          } catch {
+            /* already closing */
+          }
+        };
+        const fail = (err: unknown) => {
+          if (settled) return;
+          settled = true;
+          close();
+          reject(err ?? new DOMException("IndexedDB transaction failed", "AbortError"));
+        };
+        try {
+          const transaction = db.transaction(STORE, mode);
+          const req = run(transaction.objectStore(STORE));
+          // Resolve only once the write is durable (commit), not on request
+          // success — a transaction can still abort after a successful request.
+          transaction.oncomplete = () => {
+            if (settled) return;
+            settled = true;
+            close();
+            resolve(req.result);
+          };
+          req.onerror = () => fail(req.error);
+          transaction.onerror = () => fail(transaction.error);
+          transaction.onabort = () => fail(transaction.error);
+        } catch (e) {
+          fail(e); // e.g. the object store is missing
+        }
       }),
   );
 }
