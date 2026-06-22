@@ -2,8 +2,8 @@
 
 *[Versión en español](README.es.md)*
 
-A browser-based tool to build CASIO **eActivity** files (`.g2e` / `.g1e`) for fx-9860G–series
-graphing calculators. Write your formulas with a small LaTeX-like markup, preview the result, and
+A browser-based tool to build CASIO **eActivity** files (`.g2e` / `.g1e` / `.g3e`) for fx-9860G–series
+and fx-CG (Prizm) graphing calculators. Write your formulas with a small LaTeX-like markup, preview the result, and
 download a file you can transfer to the calculator — all **client-side**, no server, nothing leaves
 your machine.
 
@@ -15,8 +15,10 @@ output is **byte-identical** to both the Python reference and real EactMaker out
 
 > **Extensions.** The fx-9860G**III** opens **both `.g1e` and `.g2e`** — the two containers are
 > byte-structurally identical; only the extension differs (`.g2e` is the native format for the
-> GII/GIII, `.g1e` is the older fx-9860G format). `.g2e` is the safe default. If a file won't open,
-> the cause is the *contents*, not the extension.
+> GII/GIII, `.g1e` is the older fx-9860G format). `.g2e` is the safe default. `.g3e` targets the
+> color **fx-CG (Prizm)** line; it shares the same container as `.g2e` apart from a fixed subtype
+> block (matched byte-for-byte to EactMaker). If a file won't open, the cause is the *contents*,
+> not the extension.
 
 ## Features
 
@@ -56,7 +58,7 @@ npm run dev            # http://localhost:3000
 1. Enter a **Title** (≤8 chars — it becomes the `======TITLE======` banner and the on-calculator name).
 2. Type your formulas in the editor, one eActivity line per row. Use the toolbar/palette buttons or
    type the markup directly.
-3. Pick a **Format** (`.g2e` default, or `.g1e`).
+3. Pick a **Format** (`.g2e` default, `.g1e`, or `.g3e` for fx-CG / Prizm).
 4. Click **Convert & download**, then copy the file to the calculator (USB mass storage / Link /
    FA-124) and open it from the eActivity menu.
 
@@ -87,7 +89,7 @@ Plain ASCII passes through unchanged. The palettes only offer glyphs the CASIO f
 
 ## Limitations
 
-- Only **G1E / G2E** are supported. The legacy site's G3E / FLS / XCP / CAT formats are *not*
+- **G1E / G2E / G3E** are supported. The legacy site's FLS / XCP / CAT formats are *not*
   implemented (they are unimplemented in the Python reference too).
 - Not every Unicode character has a CASIO mapping (e.g. `∞`, `α`). The preview reports these; the
   Python reference behaves identically.

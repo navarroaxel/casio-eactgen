@@ -6,11 +6,13 @@ export { encode, encodeLine } from "./encode";
 export { decode } from "./decode";
 export { enc, dec } from "./chars";
 
-export type EactFormat = "g2e" | "g1e";
+export type EactFormat = "g2e" | "g1e" | "g3e";
 
 export interface BuildOptions {
   /** Encode ² ³ as the power form (a8 1a..1b) instead of the text glyph. */
   literalSuper?: boolean;
+  /** Container subtype to emit. Defaults to "g2e". */
+  format?: EactFormat;
 }
 
 /** Mirror of Python str.splitlines(): a single trailing newline yields no extra line. */
@@ -25,7 +27,8 @@ export function splitlines(s: string): string[] {
 
 /**
  * Build a CASIO eActivity file from a title and multi-line text body.
- * Returns the raw bytes; .g1e and .g2e are byte-identical (extension only).
+ * Returns the raw bytes. .g1e and .g2e are byte-identical here (extension only);
+ * .g3e (fx-CG / Prizm) differs only in a fixed prefix subtype block.
  */
 export function buildEact(
   title: string,
@@ -39,5 +42,6 @@ export function buildEact(
     title.slice(0, 8),
     pairs.map((p) => p[0]),
     pairs.map((p) => p[1]),
+    opts.format ?? "g2e",
   );
 }

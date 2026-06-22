@@ -1,6 +1,7 @@
-// Port of fix_header(), _EACT_PREFIX and build_eact() from
-// casio_translate.py (395-483). Produces the .g1e/.g2e byte container,
+// Port of fix_header(), _EACT_PREFIX, _FMT_OVERRIDES and build_eact() from
+// casio_translate.py. Produces the .g1e/.g2e/.g3e byte container,
 // byte-identical to EactMaker.
+import type { EactFormat } from "./index";
 
 function hex(s: string): number[] {
   const out: number[] = [];
@@ -27,6 +28,17 @@ const EACT_PREFIX = hex(
     "0000000000000000",
 );
 
+// Per-format byte overrides on EACT_PREFIX (mirror of Python _FMT_OVERRIDES).
+// EactMaker picks the container by format; only a fixed subtype block at
+// 0x28..0x37 differs from the .g2e baseline (verified byte-for-byte vs the live
+// server, size/content independent). fixHeader() never touches these offsets.
+// g1e stays the g2e baseline (this project's long-standing extension-only g1e).
+const FMT_OVERRIDES: Record<EactFormat, Record<number, number>> = {
+  g2e: {},
+  g1e: {},
+  g3e: { 0x2a: 0x04, 0x2c: 0x01, 0x2d: 0x04, 0x2f: 0x00, 0x34: 0x2c },
+};
+
 /** Recompute the standard-header size + checksum fields. */
 function fixHeader(b: number[]): number[] {
   const size = b.length;
@@ -52,15 +64,17 @@ function ljust8(title: string): number[] {
 }
 
 /**
- * Build an eActivity (.g1e/.g2e) the way EactMaker does.
+ * Build an eActivity (.g1e/.g2e/.g3e) the way EactMaker does.
  *   title       eActivity banner title (<=8 chars)
  *   linesBytes  one encoded byte-array per eActivity line
  *   noteFlags   per-line: true if the line is a \note (type 0x06 cell)
+ *   format      container subtype (see FMT_OVERRIDES); defaults to "g2e"
  */
 export function buildEactBytes(
   title: string,
   linesBytes: number[][],
   noteFlags?: boolean[],
+  format: EactFormat = "g2e",
 ): Uint8Array {
   const BASE = 0x8c;
   const n = linesBytes.length + 1;
@@ -108,6 +122,8 @@ export function buildEactBytes(
   body.push(...content);
 
   const out = [...EACT_PREFIX, ...body];
+  for (const [off, val] of Object.entries(FMT_OVERRIDES[format]))
+    out[Number(off)] = val;
   const size = out.length;
   const a = u32be(size - 0x78);
   out[0x74] = a[0];

@@ -74,8 +74,14 @@ don't move `localStorage` reads into effects or render EactMaker on the server.
   the TS port implements it correctly (`emitFraction`). Don't "fix" it back to match Python here.
 - Some Unicode chars are genuinely absent from the CASIO table (e.g. `∞`, `α`); both implementations
   correctly throw. The preview surfaces the error — that's expected, not a bug.
-- Only **G1E / G2E** are supported (byte-identical; extension only). G3E/FLS/XCP/CAT are unimplemented
+- **G1E / G2E / G3E** are supported. G1E and G2E are byte-identical here (extension only). G3E
+  (fx-CG / Prizm) differs from the G2E baseline only by a fixed prefix subtype block — see
+  `FMT_OVERRIDES` in `container.ts` / `_FMT_OVERRIDES` in the Python reference, reverse-engineered
+  byte-for-byte against the live EactMaker server (`format=g3e`). FLS/XCP/CAT remain unimplemented
   upstream and intentionally omitted from the Format dropdown.
+  - Caveat: the live server's *real* G1E output uses a different subtype block (`0x2a..0x2f` = `Pack`);
+    this project keeps G1E == G2E bytes by long-standing design (verified to load on the fx-9860GIII).
+    If true byte-fidelity for G1E is ever wanted, add its override to `FMT_OVERRIDES`/`_FMT_OVERRIDES`.
 
 ## Commands
 

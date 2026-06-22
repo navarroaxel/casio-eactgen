@@ -423,7 +423,10 @@ export default function EactMaker() {
         const file = byId.get(entry.id)!;
         let bytes: Uint8Array;
         try {
-          bytes = buildEact(file.title, file.content, { literalSuper: compatibility });
+          bytes = buildEact(file.title, file.content, {
+            literalSuper: compatibility,
+            format,
+          });
         } catch {
           errors.push(file.title.trim() || "Untitled");
           continue;
@@ -536,17 +539,23 @@ export default function EactMaker() {
           preview.push({ text: decode(bytes) || " ", note: false });
         }
       }
-      const bytes = buildEact(title, content, { literalSuper: compatibility });
+      const bytes = buildEact(title, content, {
+        literalSuper: compatibility,
+        format,
+      });
       return { size: bytes.length, lineCount: lines.length, preview, error };
     } catch (err) {
       error = err instanceof Error ? err.message : String(err);
       return { size: null, lineCount: lines.length, preview, error };
     }
-  }, [content, compatibility, title]);
+  }, [content, compatibility, title, format]);
 
   const handleConvert = () => {
     try {
-      const bytes = buildEact(title, content, { literalSuper: compatibility });
+      const bytes = buildEact(title, content, {
+        literalSuper: compatibility,
+        format,
+      });
       downloadBlob(
         `${safeName(title, "eact")}.${format}`,
         bytes.slice().buffer,
@@ -570,6 +579,7 @@ export default function EactMaker() {
         try {
           const bytes = buildEact(file.title, file.content, {
             literalSuper: compatibility,
+            format,
           });
           zipInput[entry.path] = bytes;
           total += bytes.length;

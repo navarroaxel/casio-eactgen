@@ -2,8 +2,8 @@
 
 *[English version](README.md)*
 
-Una herramienta en el navegador para crear archivos **eActivity** de CASIO (`.g2e` / `.g1e`) para
-las calculadoras gráficas de la serie fx-9860G. Escribe tus fórmulas con un pequeño marcado tipo
+Una herramienta en el navegador para crear archivos **eActivity** de CASIO (`.g2e` / `.g1e` / `.g3e`) para
+las calculadoras gráficas de la serie fx-9860G y fx-CG (Prizm). Escribe tus fórmulas con un pequeño marcado tipo
 LaTeX, previsualiza el resultado y descarga un archivo listo para pasar a la calculadora — todo
 **del lado del cliente**, sin servidor; nada sale de tu equipo.
 
@@ -15,8 +15,10 @@ real de EactMaker (verificado con `npm test`).
 
 > **Extensiones.** La fx-9860G**III** abre **tanto `.g1e` como `.g2e`**: los dos contenedores son
 > idénticos byte a byte; solo cambia la extensión (`.g2e` es el formato nativo de la GII/GIII,
-> `.g1e` es el de la fx-9860G antigua). `.g2e` es el valor por defecto seguro. Si un archivo no
-> abre, la causa es el *contenido*, no la extensión.
+> `.g1e` es el de la fx-9860G antigua). `.g2e` es el valor por defecto seguro. `.g3e` es para la
+> línea a color **fx-CG (Prizm)**; usa el mismo contenedor que `.g2e` salvo un bloque de subtipo
+> fijo (idéntico byte a byte al de EactMaker). Si un archivo no abre, la causa es el *contenido*,
+> no la extensión.
 
 ## Funcionalidades
 
@@ -26,7 +28,7 @@ real de EactMaker (verificado con `npm test`).
 - **Vista previa y validación** — decodifica tu entrada a texto legible, muestra el tamaño de
   salida y señala cualquier carácter que la tabla de fuentes de CASIO no pueda representar *antes*
   de convertir.
-- **Convertir y descargar** — genera el archivo `.g2e`/`.g1e` en el navegador.
+- **Convertir y descargar** — genera el archivo `.g2e`/`.g1e`/`.g3e` en el navegador.
 - **Guardar / Cargar proyecto** — almacena tu trabajo como un archivo `.eam.json`; el editor además
   autoguarda en `localStorage` y restaura al recargar.
 
@@ -49,7 +51,7 @@ ejecutarlo si cambia `chars.toml`. Lee `chars.toml` desde un clon local de
    el nombre que aparece en la calculadora).
 2. Escribe tus fórmulas en el editor, una línea de la eActivity por renglón. Usa los botones de la
    barra/paletas o escribe el marcado directamente.
-3. Elige un **Formato** (`.g2e` por defecto, o `.g1e`).
+3. Elige un **Formato** (`.g2e` por defecto, `.g1e`, o `.g3e` para fx-CG / Prizm).
 4. Pulsa **Convert & download**, luego copia el archivo a la calculadora (almacenamiento USB / Link
    / FA-124) y ábrelo desde el menú eActivity.
 
@@ -82,7 +84,7 @@ representar.
 
 ## Limitaciones
 
-- Solo se admiten **G1E / G2E**. Los formatos G3E / FLS / XCP / CAT del sitio original *no* están
+- Se admiten **G1E / G2E / G3E**. Los formatos FLS / XCP / CAT del sitio original *no* están
   implementados (tampoco lo están en la referencia en Python).
 - No todos los caracteres Unicode tienen un mapeo en CASIO (p. ej. `∞`, `α`). La vista previa los
   reporta; la referencia en Python se comporta de forma idéntica.

@@ -96,7 +96,8 @@ function coerceV1(obj: Record<string, unknown>): Project {
 
   return {
     v: 1,
-    format: obj.format === "g1e" ? "g1e" : "g2e",
+    format:
+      obj.format === "g1e" || obj.format === "g3e" ? obj.format : "g2e",
     compatibility: Boolean(obj.compatibility),
     files,
     folders,
@@ -119,7 +120,10 @@ export function migrate(data: unknown): Project {
     });
     return {
       v: 1,
-      format: data.format === "g1e" ? "g1e" : "g2e",
+      format:
+        data.format === "g1e" || data.format === "g3e"
+          ? data.format
+          : "g2e",
       compatibility: Boolean(data.compatibility),
       files: [file],
       folders: [],
