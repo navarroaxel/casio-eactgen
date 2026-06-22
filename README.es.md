@@ -11,7 +11,7 @@ Es una recreación moderna de la herramienta en línea
 [EactMaker](https://tools.planet-casio.com/EactMaker/) de Helder7 y Ziqumu. El codificador es un
 port directo del generador [`casio-eactgen-py`](https://github.com/navarroaxel/casio-eactgen-py) obtenido por ingeniería
 inversa, y su salida es **idéntica byte por byte** tanto a la referencia en Python como a la salida
-real de EactMaker (verificado con `npm run test:parity`).
+real de EactMaker (verificado con `npm test`).
 
 > **Extensiones.** La fx-9860G**III** abre **tanto `.g1e` como `.g2e`**: los dos contenedores son
 > idénticos byte a byte; solo cambia la extensión (`.g2e` es el formato nativo de la GII/GIII,
@@ -95,7 +95,7 @@ representar.
 | `src/lib/casio/` | Codificador en TypeScript — `encode`, `note`, `container`, `decode`, `chars`, `index`. Un port fiel de `casio_translate.py`. |
 | `src/lib/casio/chars.generated.json` | Mapas Unicode↔CASIO, generados desde `chars.toml`. |
 | `scripts/gen-chars.mjs` | Paso de build que produce el JSON (`npm run gen:chars`). |
-| `scripts/parity.ts` | Prueba de igualdad byte a byte contra la referencia en Python (`npm run test:parity`). |
+| `scripts/parity.ts` | Prueba de igualdad byte a byte contra la referencia en Python (`npm test`). |
 | `src/components/EactMaker.tsx` | La interfaz del editor (solo cliente). |
 
 Todo se ejecuta en el navegador; no hay backend. Consulta [`AGENTS.md`](AGENTS.md) para los detalles
@@ -108,7 +108,7 @@ ingeniería inversa.
 ```bash
 npm run dev          # servidor de desarrollo
 npm run gen:chars    # regenera chars.generated.json desde chars.toml
-npm run test:parity  # verifica que la salida TS es idéntica byte a byte a la referencia Python
+npm test  # verifica que la salida TS es idéntica byte a byte a la referencia Python
 npm run build        # build de producción
 npm run lint         # eslint
 ```

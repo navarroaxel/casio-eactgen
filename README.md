@@ -11,7 +11,7 @@ It's a modern re-creation of the online
 [EactMaker](https://tools.planet-casio.com/EactMaker/) tool by Helder7 and Ziqumu. The encoder is a
 direct port of the reverse-engineered [`casio-eactgen-py`](https://github.com/navarroaxel/casio-eactgen-py) generator, and its
 output is **byte-identical** to both the Python reference and real EactMaker output (verified by
-`npm run test:parity`).
+`npm test`).
 
 > **Extensions.** The fx-9860G**III** opens **both `.g1e` and `.g2e`** — the two containers are
 > byte-structurally identical; only the extension differs (`.g2e` is the native format for the
@@ -100,7 +100,7 @@ Plain ASCII passes through unchanged. The palettes only offer glyphs the CASIO f
 | `src/lib/casio/` | TypeScript encoder — `encode`, `note`, `container`, `decode`, `chars`, `index`. A faithful port of `casio_translate.py`. |
 | `src/lib/casio/chars.generated.json` | Unicode↔CASIO maps, generated from `chars.toml`. |
 | `scripts/gen-chars.mjs` | Build step that produces the JSON (`npm run gen:chars`). |
-| `scripts/parity.ts` | Byte-parity test vs. the Python reference (`npm run test:parity`). |
+| `scripts/parity.ts` | Byte-parity test vs. the Python reference (`npm test`). |
 | `src/components/EactMaker.tsx` | The editor UI (client-only). |
 
 Everything runs in the browser; there is no backend. See [`AGENTS.md`](AGENTS.md) for the format
@@ -112,7 +112,7 @@ implementation and the full reverse-engineered binary-format spec.
 ```bash
 npm run dev          # dev server
 npm run gen:chars    # regenerate chars.generated.json from chars.toml
-npm run test:parity  # verify TS output is byte-identical to the Python reference
+npm test  # verify TS output is byte-identical to the Python reference
 npm run build        # production build
 npm run lint         # eslint
 ```

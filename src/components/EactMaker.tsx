@@ -166,6 +166,29 @@ export default function EactMaker() {
   // but only files *we* wrote, never pre-existing files in the chosen folder.
   const syncedPathsRef = useRef<string[]>([]);
 
+  // Serialized text we last wrote to the linked file, to skip redundant writes
+  // and to reconcile disk-vs-memory on mount (see the restore effect).
+  const lastWrittenTextRef = useRef<string | null>(null);
+
+  // Latest project, readable from mount-only effects without making them a
+  // dependency (the restore effect must not re-run on every edit). The initial
+  // useRef value already holds the mount-time project; this keeps it fresh.
+  const projectRef = useRef(project);
+  useEffect(() => {
+    projectRef.current = project;
+  }, [project]);
+
+  // Latest-only write queues: a write that's already in flight finishes, then
+  // the most recent pending payload runs — never an older one after a newer.
+  const fileQueueRef = useRef<{ running: boolean; pending: string | null }>({
+    running: false,
+    pending: null,
+  });
+  const dirQueueRef = useRef<{ running: boolean; pending: boolean }>({
+    running: false,
+    pending: false,
+  });
+
   const taRef = useRef<HTMLTextAreaElement>(null);
   const pendingCaret = useRef<number | null>(null);
 
@@ -284,6 +307,35 @@ export default function EactMaker() {
     }
   }, [project]);
 
+  // Serialize the project to the linked file, newest-payload-wins. Drops stale
+  // in-flight writes so an older debounced save can't land after a newer one.
+  const queueFileWrite = useCallback((text: string) => {
+    const q = fileQueueRef.current;
+    q.pending = text;
+    if (q.running) return;
+    q.running = true;
+    (async () => {
+      try {
+        while (q.pending !== null) {
+          const next = q.pending;
+          q.pending = null;
+          const handle = fileHandleRef.current;
+          if (!handle) break;
+          await writeFile(handle, next);
+          lastWrittenTextRef.current = next;
+        }
+      } catch {
+        // Lost access (file moved, permission revoked) — ask to reconnect.
+        q.pending = null;
+        setLinkStatus("needs-permission");
+        const name = fileHandleRef.current?.name ?? "the linked file";
+        setStatus(`Auto-save to ${name} failed — reconnect to resume`);
+      } finally {
+        q.running = false;
+      }
+    })();
+  }, []);
+
   // Restore a previously linked file on mount. File System Access permission is
   // not persisted across loads, so unless the origin still holds it we surface a
   // "Reconnect" affordance rather than prompting without a user gesture. (IDB is
@@ -296,7 +348,34 @@ export default function EactMaker() {
       fileHandleRef.current = handle;
       setLinkedName(handle.name);
       const granted = (await handle.queryPermission?.({ mode: "readwrite" })) === "granted";
-      setLinkStatus(granted ? "linked" : "needs-permission");
+      if (!granted) {
+        if (!cancelled) setLinkStatus("needs-permission");
+        return;
+      }
+      // The file may have changed elsewhere (another device, a synced folder).
+      // Read it before enabling auto-save and, if it differs from what we have
+      // in memory, let the user choose — never silently overwrite newer disk
+      // content. (Auto-save stays off until this resolves, so no write races it.)
+      try {
+        const diskText = await (await handle.getFile()).text();
+        if (cancelled) return;
+        if (diskText !== serializeProject(projectRef.current)) {
+          const useDisk = window.confirm(
+            `"${handle.name}" was changed outside this browser.\n\n` +
+              `OK — load the version on disk (discard local changes)\n` +
+              `Cancel — keep your local version (overwrites the file)`,
+          );
+          if (useDisk) {
+            setProject(parseProjectFile(diskText));
+            lastWrittenTextRef.current = diskText;
+          }
+        } else {
+          lastWrittenTextRef.current = diskText; // in sync — skip a redundant write
+        }
+      } catch {
+        /* couldn't read — link anyway; the first write will surface any error */
+      }
+      if (!cancelled) setLinkStatus("linked");
     });
     return () => {
       cancelled = true;
@@ -306,17 +385,11 @@ export default function EactMaker() {
   // Debounced write to the linked disk file when the project changes.
   useEffect(() => {
     if (linkStatus !== "linked" || !fileHandleRef.current) return;
-    const handle = fileHandleRef.current;
     const text = serializeProject(project);
-    const timer = setTimeout(() => {
-      writeFile(handle, text).catch(() => {
-        // Lost access (file moved, permission revoked) — ask to reconnect.
-        setLinkStatus("needs-permission");
-        setStatus(`Auto-save to ${handle.name} failed — reconnect to resume`);
-      });
-    }, 1200);
+    if (text === lastWrittenTextRef.current) return; // nothing new to persist
+    const timer = setTimeout(() => queueFileWrite(text), 1200);
     return () => clearTimeout(timer);
-  }, [project, linkStatus]);
+  }, [project, linkStatus, queueFileWrite]);
 
   // Restore a mapped output directory on mount (same permission caveat as the
   // linked file: not persisted across loads, so surface "Reconnect" instead).
@@ -338,15 +411,16 @@ export default function EactMaker() {
 
   // Compile every file and write it into the mapped directory, recreating any
   // project subfolders. Files that fail to encode are skipped, not aborted, so
-  // one bad file doesn't block the rest. Stale files from renames/deletes are
-  // left in place (by design — no destructive cleanup of the target folder).
+  // one bad file doesn't block the rest. Output orphaned by a move/rename/delete
+  // is pruned afterwards — but only paths we wrote (see syncedPathsRef).
   const syncToDir = useCallback(
     async (dir: FileSystemDirectoryHandle) => {
       const plan = planExport(project.files, format);
+      const byId = new Map(project.files.map((f) => [f.id, f]));
       let ok = 0;
       const errors: string[] = [];
       for (const entry of plan) {
-        const file = project.files.find((f) => f.id === entry.id)!;
+        const file = byId.get(entry.id)!;
         let bytes: Uint8Array;
         try {
           bytes = buildEact(file.title, file.content, { literalSuper: compatibility });
@@ -372,20 +446,47 @@ export default function EactMaker() {
     [project.files, format, compatibility],
   );
 
+  // Keep a stable handle to the latest syncToDir so the queue always runs the
+  // newest closure (current project) without re-creating the queue callback.
+  const syncToDirRef = useRef(syncToDir);
+  useEffect(() => {
+    syncToDirRef.current = syncToDir;
+  }, [syncToDir]);
+
+  // Latest-only folder sync: coalesces overlapping triggers and re-runs once
+  // more if another change arrived mid-sync, so the folder reflects the newest
+  // state and concurrent runs can't clobber syncedPathsRef.
+  const queueDirSync = useCallback(() => {
+    const q = dirQueueRef.current;
+    q.pending = true;
+    if (q.running) return;
+    q.running = true;
+    (async () => {
+      try {
+        while (q.pending) {
+          q.pending = false;
+          const dir = dirHandleRef.current;
+          if (!dir) break;
+          const { ok, errors, removed } = await syncToDirRef.current(dir);
+          setStatus(syncMessage(dir.name, ok, removed, errors));
+        }
+      } catch {
+        q.pending = false;
+        setDirStatus("needs-permission");
+        const name = dirHandleRef.current?.name ?? "the folder";
+        setStatus(`Sync to ${name} failed — reconnect to resume`);
+      } finally {
+        q.running = false;
+      }
+    })();
+  }, []);
+
   // Debounced re-sync of the compiled files when the project changes.
   useEffect(() => {
     if (dirStatus !== "linked" || !dirHandleRef.current) return;
-    const dir = dirHandleRef.current;
-    const timer = setTimeout(() => {
-      syncToDir(dir)
-        .then(({ ok, errors, removed }) => setStatus(syncMessage(dir.name, ok, removed, errors)))
-        .catch(() => {
-          setDirStatus("needs-permission");
-          setStatus(`Sync to ${dir.name} failed — reconnect to resume`);
-        });
-    }, 1200);
+    const timer = setTimeout(() => queueDirSync(), 1200);
     return () => clearTimeout(timer);
-  }, [syncToDir, dirStatus]);
+  }, [project, dirStatus, queueDirSync]);
 
   // Apply a deferred caret position after a programmatic insert.
   useEffect(() => {
@@ -518,7 +619,9 @@ export default function EactMaker() {
     try {
       const handle = await pickSaveFile(`${safeName(title, "project")}.eam.json`);
       if (!handle) return; // cancelled
-      await writeFile(handle, serializeProject(project));
+      const text = serializeProject(project);
+      await writeFile(handle, text);
+      lastWrittenTextRef.current = text;
       await saveHandle(handle);
       fileHandleRef.current = handle;
       setLinkedName(handle.name);
@@ -534,6 +637,7 @@ export default function EactMaker() {
       const opened = await pickOpenFile();
       if (!opened) return; // cancelled
       setProject(parseProjectFile(opened.text));
+      lastWrittenTextRef.current = opened.text; // disk already holds this
       await saveHandle(opened.handle);
       fileHandleRef.current = opened.handle;
       setLinkedName(opened.handle.name);
@@ -548,8 +652,13 @@ export default function EactMaker() {
     const handle = fileHandleRef.current;
     if (!handle) return;
     try {
-      if (!(await ensureRW(handle))) return;
-      await writeFile(handle, serializeProject(project));
+      if (!(await ensureRW(handle))) {
+        setStatus(`Permission denied for ${handle.name} — reconnect to resume`);
+        return;
+      }
+      const text = serializeProject(project);
+      await writeFile(handle, text);
+      lastWrittenTextRef.current = text;
       setLinkStatus("linked");
       setStatus(`Auto-saving to ${handle.name}`);
     } catch (err) {
@@ -588,7 +697,10 @@ export default function EactMaker() {
     const dir = dirHandleRef.current;
     if (!dir) return;
     try {
-      if (!(await ensureRW(dir))) return;
+      if (!(await ensureRW(dir))) {
+        setStatus(`Permission denied for ${dir.name} — reconnect to resume`);
+        return;
+      }
       setDirStatus("linked");
       const { ok, errors, removed } = await syncToDir(dir);
       setStatus(syncMessage(dir.name, ok, removed, errors));

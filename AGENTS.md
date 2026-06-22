@@ -29,7 +29,7 @@ clone of that repo at `../casio-eactgen-py` (next to this repo); `gen:chars` als
 | `src/lib/casio/chars.ts` | loads the generated maps |
 | `src/lib/casio/index.ts` | public API: `buildEact`, `encode`, `encodeLine`, `decode`, `splitlines` |
 
-**Any change to the encoder must keep `npm run test:parity` green.** That test
+**Any change to the encoder must keep `npm test` green.** That test
 (`scripts/parity.ts`) byte-compares this TS output against live Python output over the whole of
 `../casio-eactgen-py/input.txt` (every line in both superscript modes, plus the full container incl.
 notes across several titles). It is the contract: byte-for-byte equality with the Python reference,
@@ -82,7 +82,7 @@ don't move `localStorage` reads into effects or render EactMaker on the server.
 ```bash
 npm run dev          # dev server
 npm run gen:chars    # regenerate chars.generated.json
-npm run test:parity  # byte-parity vs the Python reference (run after touching the encoder)
+npm test  # byte-parity vs the Python reference (run after touching the encoder)
 npm run build        # production build
 npm run lint         # eslint
 ```
