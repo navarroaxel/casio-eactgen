@@ -968,8 +968,7 @@ function Header() {
         </h1>
         <p className="text-sm text-black/50 dark:text-white/50">
           Write LaTeX-style math, get CASIO eActivity files (.g2e · .g1e ·
-          .g3e) for fx-9860G and fx-CG calculators — all in your browser, no
-          install.
+          .g3e) for fx-9860G and fx-CG calculators.
         </p>
       </div>
       <GitHubLink />
@@ -990,7 +989,7 @@ function Footer() {
         EactMaker
       </a>{" "}
       by Helder7 &amp; Ziqumu. Output is byte-identical to EactMaker (G1E /
-      G2E), generated entirely client-side from a reverse-engineered file
+      G2E / G3E), generated entirely client-side from a reverse-engineered file
       format.
     </footer>
   );

@@ -18,6 +18,7 @@ const pad4 = (len: number) => (4 - (len % 4)) % 4;
 
 // Fixed 0x00..0x67 header prefix produced by EactMaker (verified byte-identical
 // across all examples). Size/checksum fields here are overwritten by fixHeader().
+const PREFIX_LEN = 0x68; // bytes 0x00..0x67
 const EACT_PREFIX = hex(
   "aaacbdaf90889a8db6ffefffefff0000" +
     "00000000000000000000000000000000" +
@@ -27,17 +28,56 @@ const EACT_PREFIX = hex(
     "01010101010100000000000000000000" +
     "0000000000000000",
 );
+if (EACT_PREFIX.length !== PREFIX_LEN)
+  throw new Error(
+    `EACT_PREFIX must be ${PREFIX_LEN} bytes, got ${EACT_PREFIX.length}`,
+  );
 
-// Per-format byte overrides on EACT_PREFIX (mirror of Python _FMT_OVERRIDES).
-// EactMaker picks the container by format; only a fixed subtype block at
-// 0x28..0x37 differs from the .g2e baseline (verified byte-for-byte vs the live
-// server, size/content independent). fixHeader() never touches these offsets.
-// g1e stays the g2e baseline (this project's long-standing extension-only g1e).
-const FMT_OVERRIDES: Record<EactFormat, Record<number, number>> = {
-  g2e: {},
-  g1e: {},
-  g3e: { 0x2a: 0x04, 0x2c: 0x01, 0x2d: 0x04, 0x2f: 0x00, 0x34: 0x2c },
+// The format discriminator lives entirely in the prefix "subtype block": the
+// bytes EactMaker varies per format all fall in [SUBTYPE_BLOCK_START, _END).
+// Everything else in the container — checksums, offsets, cells — is identical
+// across formats (verified byte-for-byte against the live server, size/content
+// independent), and fixHeader() never touches this range.
+const SUBTYPE_BLOCK_START = 0x28;
+const SUBTYPE_BLOCK_END = 0x38; // exclusive
+
+// Per-format overrides on EACT_PREFIX (mirror of Python _FMT_OVERRIDES). Each
+// entry is {at, from, to}: `from` is the g2e baseline byte we expect at that
+// offset and is asserted before we overwrite it — so any future edit that shifts
+// the prefix layout trips a loud error here instead of silently emitting a wrong
+// container. g1e stays the g2e baseline (this project's long-standing
+// extension-only g1e; the live server's real g1e differs — see AGENTS.md).
+interface PrefixOverride {
+  at: number;
+  from: number;
+  to: number;
+}
+const FMT_OVERRIDES: Record<EactFormat, PrefixOverride[]> = {
+  g2e: [],
+  g1e: [],
+  g3e: [
+    { at: 0x2a, from: 0x02, to: 0x04 },
+    { at: 0x2c, from: 0x02, to: 0x01 },
+    { at: 0x2d, from: 0x02, to: 0x04 },
+    { at: 0x2f, from: 0x01, to: 0x00 },
+    { at: 0x34, from: 0x10, to: 0x2c },
+  ],
 };
+
+/** Apply a format's subtype overrides to the assembled bytes, in place. */
+function applyFormatOverrides(out: number[], format: EactFormat): void {
+  for (const { at, from, to } of FMT_OVERRIDES[format]) {
+    if (at < SUBTYPE_BLOCK_START || at >= SUBTYPE_BLOCK_END)
+      throw new Error(
+        `container: ${format} override 0x${at.toString(16)} is outside the subtype block`,
+      );
+    if (out[at] !== from)
+      throw new Error(
+        `container: prefix drift at 0x${at.toString(16)} — expected g2e baseline 0x${from.toString(16)}, got 0x${out[at].toString(16)}; ${format} overrides are stale`,
+      );
+    out[at] = to;
+  }
+}
 
 /** Recompute the standard-header size + checksum fields. */
 function fixHeader(b: number[]): number[] {
@@ -122,8 +162,7 @@ export function buildEactBytes(
   body.push(...content);
 
   const out = [...EACT_PREFIX, ...body];
-  for (const [off, val] of Object.entries(FMT_OVERRIDES[format]))
-    out[Number(off)] = val;
+  applyFormatOverrides(out, format);
   const size = out.length;
   const a = u32be(size - 0x78);
   out[0x74] = a[0];

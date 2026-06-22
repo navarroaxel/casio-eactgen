@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Eact Maker — CASIO eActivity generator",
   description:
-    "Create CASIO eActivity files (.g2e / .g1e / .g3e) for fx-9860G and fx-CG (Prizm) calculators right in your browser. Write LaTeX-style math markup, preview it, and download — fully client-side, nothing uploaded. A modern re-creation of EactMaker.",
+    "Create CASIO eActivity files (.g2e / .g1e / .g3e) for fx-9860G and fx-CG calculators in your browser — LaTeX-style math, client-side, no install.",
 };
 
 export default function RootLayout({
