@@ -5,6 +5,7 @@ import {
   buildEact,
   decode,
   encodeLine,
+  parseEact,
   splitlines,
   type EactFormat,
 } from "@/lib/casio";
@@ -624,6 +625,48 @@ export default function EactMaker() {
     }
   };
 
+  // Import compiled .g1e/.g2e/.g3e eActivities back into editable markup. Each
+  // file becomes a new project file; the on-calc banner is its name (falling
+  // back to the filename). Reconstruction is byte-lossless but text-lossy.
+  const handleImportEact = async (files: FileList | File[]) => {
+    const list = Array.from(files);
+    if (list.length === 0) return;
+    const imported: EactFile[] = [];
+    const errors: string[] = [];
+    const formats = new Set<EactFormat>();
+    let lossy = 0;
+    for (const f of list) {
+      try {
+        const bytes = new Uint8Array(await f.arrayBuffer());
+        const parsed = parseEact(bytes);
+        const stem = f.name.replace(/\.[^.]*$/, "");
+        imported.push(
+          newFile({ title: parsed.title || stem.slice(0, 8), content: parsed.content }),
+        );
+        formats.add(parsed.format);
+        if (parsed.lossy) lossy += 1;
+      } catch {
+        errors.push(f.name);
+      }
+    }
+    if (imported.length > 0) {
+      const last = imported[imported.length - 1].id;
+      setProject((p) => ({
+        ...p,
+        files: [...p.files, ...imported],
+        ui: { ...p.ui, activeId: last },
+      }));
+    }
+    const parts: string[] = [];
+    if (imported.length > 0)
+      parts.push(
+        `Imported ${imported.length} file(s) (${[...formats].join(", ")})`,
+      );
+    if (lossy > 0) parts.push(`${lossy} had undecodable bytes (\\xHH)`);
+    if (errors.length > 0) parts.push(`couldn't read ${errors.join(", ")}`);
+    setStatus(parts.join(" · ") || "No eActivity files imported");
+  };
+
   // Link the project to a file on disk and auto-save there from now on.
   const handleLinkSave = async () => {
     try {
@@ -754,6 +797,7 @@ export default function EactMaker() {
           onDeleteFolder={deleteFolder}
           onSave={handleSave}
           onLoad={handleLoadFile}
+          onImport={handleImportEact}
           fsSupported={fsSupported}
           linkStatus={linkStatus}
           linkedName={linkedName}

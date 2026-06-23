@@ -97,7 +97,7 @@ const SUPERS: Record<string, string> = {
 };
 
 // EactMaker uses specific FONTCHARACTER codes that differ from the table default.
-const EACT_OVERRIDE: Record<string, number> = {
+export const EACT_OVERRIDE: Record<string, number> = {
   "∇": 0xe6da, // nabla -> White Down-Pointing Triangle glyph
   "▽": 0xe6da,
   "+": 0x89, // Addition token (not ASCII 0x2B)
@@ -118,7 +118,7 @@ function pushCode(out: number[], code: number): void {
 // code (chars.toml): multi-codepoint Unicode sequences (a base letter + combining
 // mark, or ⁻¹), and `\token;` markup for glyphs with no Unicode at all. Matched
 // longest-first at the top of encodeRun so e.g. "\subs0;" wins over a bare "\".
-const RAW_SEQ: ReadonlyArray<readonly [string, number]> = [
+export const RAW_SEQ: ReadonlyArray<readonly [string, number]> = [
   ["\\subs0;", 0xe5cd], // small subscript 0 (no Unicode form)
   ["\\subs1;", 0xe5ce], // small subscript 1
   ["\\subs2;", 0xe5cf], // small subscript 2

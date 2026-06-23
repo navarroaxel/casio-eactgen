@@ -28,6 +28,10 @@ output is **byte-identical** to both the Python reference and real EactMaker out
 - **Live preview & validation** — decodes your input back to readable text, shows the output size,
   and flags any character the CASIO font table can't represent *before* you convert.
 - **Convert & download** — generates the `.g2e`/`.g1e` file in the browser.
+- **Import existing eActivities** — "Import .g*e…" reads `.g1e`/`.g2e`/`.g3e` files made by another
+  program or on the calculator itself back into editable markup, one project file each. Works in
+  every browser. The markup is rebuilt faithfully (it re-compiles to the same bytes) though some
+  forms are normalised — e.g. `²` may come back as `^{2}` and `½` as `\frac{1}{2}`.
 - **Save / Load project** — store your work as a `.eam.json` file; the editor also autosaves to
   `localStorage` and restores on reload.
 - **Save to file & auto-save** — in Chromium browsers (Chrome/Edge), link the project to a
@@ -99,10 +103,11 @@ Plain ASCII passes through unchanged. The palettes only offer glyphs the CASIO f
 
 | Path | What |
 |------|------|
-| `src/lib/casio/` | TypeScript encoder — `encode`, `note`, `container`, `decode`, `chars`, `index`. A faithful port of `casio_translate.py`. |
+| `src/lib/casio/` | TypeScript encoder — `encode`, `note`, `container`, `decode`, `parse`, `chars`, `index`. A faithful port of `casio_translate.py`, plus `parse`/`decodeMarkup` for import. |
 | `src/lib/casio/chars.generated.json` | Unicode↔CASIO maps, generated from `chars.toml`. |
 | `scripts/gen-chars.mjs` | Build step that produces the JSON (`npm run gen:chars`). |
 | `scripts/parity.ts` | Byte-parity test vs. the Python reference (`npm test`). |
+| `scripts/parity-roundtrip.ts` | Import round-trip test: build→parse→build is byte-identical (`npm test`). |
 | `src/components/EactMaker.tsx` | The editor UI (client-only). |
 
 Everything runs in the browser; there is no backend. See [`AGENTS.md`](AGENTS.md) for the format
@@ -112,11 +117,12 @@ implementation and the full reverse-engineered binary-format spec.
 ### Scripts
 
 ```bash
-npm run dev          # dev server
-npm run gen:chars    # regenerate chars.generated.json from chars.toml
-npm test  # verify TS output is byte-identical to the Python reference
-npm run build        # production build
-npm run lint         # eslint
+npm run dev            # dev server
+npm run gen:chars      # regenerate chars.generated.json from chars.toml
+npm test               # byte-parity vs the Python reference + import round-trip
+npm run test:roundtrip # just the build→parse→build byte round-trip
+npm run build          # production build
+npm run lint           # eslint
 ```
 
 ## Credits

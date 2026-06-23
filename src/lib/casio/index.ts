@@ -3,7 +3,8 @@ import { encodeLine } from "./encode";
 import { buildEactBytes } from "./container";
 
 export { encode, encodeLine } from "./encode";
-export { decode } from "./decode";
+export { decode, decodeMarkup } from "./decode";
+export { parseEact, type ParsedEact } from "./parse";
 export { enc, dec } from "./chars";
 
 export type EactFormat = "g2e" | "g1e" | "g3e";
