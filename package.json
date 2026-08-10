@@ -12,6 +12,7 @@
     "start": "next start",
     "lint": "eslint",
     "gen:chars": "node scripts/gen-chars.mjs",
+    "gen:fixtures": "tsx scripts/gen-fixtures.ts",
     "test": "tsx scripts/parity.ts && tsx scripts/parity-roundtrip.ts",
     "test:roundtrip": "tsx scripts/parity-roundtrip.ts",
     "test:unit": "vitest run",

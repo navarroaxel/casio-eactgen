@@ -18,7 +18,7 @@ import {
 } from "../src/lib/casio/index";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const INPUT = join(here, "..", "..", "casio-eactgen-py", "input.txt");
+const INPUT = join(here, "fixtures", "input.txt");
 
 let failures = 0;
 const pass = (m: string) => console.log(`  ✓ ${m}`);

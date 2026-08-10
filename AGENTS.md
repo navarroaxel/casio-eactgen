@@ -16,9 +16,10 @@ A modern re-creation of [EactMaker](https://tools.planet-casio.com/EactMaker/); 
 [`casio-eactgen-py`](https://github.com/navarroaxel/casio-eactgen-py)'s `casio_translate.py`. That
 Python file (and its `AGENTS.md`) is the **source of truth** for the reverse-engineered `.g2e`/`.g1e`
 binary format: standard header + checksums, the MCS directory, cell layout, and every markup→bytes
-mapping. Read it before changing encoder behaviour. The parity test and `gen:chars` expect a local
-clone of that repo at `../casio-eactgen-py` (next to this repo); `gen:chars` also accepts a
-`CHARS_TOML=<path>` override.
+mapping. Read it before changing encoder behaviour. `gen:chars` and `gen:fixtures` expect a local
+clone of that repo at `../casio-eactgen-py` (next to this repo); both accept path overrides
+(`CHARS_TOML=<path>`, `CASIO_PY=<path-to-casio_translate.py>`) if it's checked out elsewhere. `npm
+test` itself needs neither Python nor the clone — see below.
 
 | File | Mirrors (Python) |
 |------|------------------|
@@ -30,12 +31,17 @@ clone of that repo at `../casio-eactgen-py` (next to this repo); `gen:chars` als
 | `src/lib/casio/chars.ts` | loads the generated maps |
 | `src/lib/casio/index.ts` | public API: `buildEact`, `encode`, `encodeLine`, `decode`, `decodeMarkup`, `parseEact`, `splitlines` |
 
-**Any change to the encoder must keep `npm test` green.** It runs two contracts:
+**Any change to the encoder must keep `npm test` green.** It runs two contracts, both self-contained
+(no `python3`, no sibling checkout — CI runs them on every push):
 
-1. `scripts/parity.ts` byte-compares this TS output against live Python output over the whole of
-   `../casio-eactgen-py/input.txt` (every line in both superscript modes, plus the full container
-   incl. notes across several titles) — byte-for-byte equality with the Python reference, which is
-   itself verified byte-identical to real EactMaker output.
+1. `scripts/parity.ts` byte-compares this TS output against **frozen** Python reference output —
+   `scripts/fixtures/parity.json` — recorded from `scripts/fixtures/input.txt` (every line in both
+   superscript modes, plus the full container incl. notes across several titles/formats). The
+   fixture is a point-in-time capture, itself verified byte-identical to real EactMaker output; it is
+   not re-derived from Python at test time. **Regenerate it** with `npm run gen:fixtures` (needs
+   `python3` + `../casio-eactgen-py`) after changing `casio_translate.py` or the test corpus — nothing
+   else re-checks that the fixture still matches the Python reference, so don't hand-edit either
+   `scripts/fixtures/*` file.
 2. `scripts/parity-roundtrip.ts` (`npm run test:roundtrip`) proves **import** is the byte-exact
    inverse of build: `buildEact → parseEact → buildEact` is byte-identical over the same corpus (all
    formats, both superscript modes). Import is **lossless as bytes but lossy as text** — there is no
@@ -102,9 +108,11 @@ don't move `localStorage` reads into effects or render EactMaker on the server.
 
 ```bash
 npm run dev            # dev server
-npm run gen:chars      # regenerate chars.generated.json
-npm test               # byte-parity vs Python + import round-trip (run after touching the encoder)
+npm run gen:chars      # regenerate chars.generated.json (needs ../casio-eactgen-py)
+npm run gen:fixtures   # regenerate scripts/fixtures/parity.json (needs ../casio-eactgen-py)
+npm test               # byte-parity vs frozen fixtures + import round-trip (self-contained)
 npm run test:roundtrip # just the build→parse→build byte round-trip
+npm run test:unit      # Vitest unit tests (pure logic, also self-contained)
 npm run build          # production build
 npm run lint           # eslint
 ```

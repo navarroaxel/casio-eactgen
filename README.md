@@ -106,7 +106,9 @@ Plain ASCII passes through unchanged. The palettes only offer glyphs the CASIO f
 | `src/lib/casio/` | TypeScript encoder — `encode`, `note`, `container`, `decode`, `parse`, `chars`, `index`. A faithful port of `casio_translate.py`, plus `parse`/`decodeMarkup` for import. |
 | `src/lib/casio/chars.generated.json` | Unicode↔CASIO maps, generated from `chars.toml`. |
 | `scripts/gen-chars.mjs` | Build step that produces the JSON (`npm run gen:chars`). |
-| `scripts/parity.ts` | Byte-parity test vs. the Python reference (`npm test`). |
+| `scripts/fixtures/` | Frozen test corpus + recorded Python reference output, so parity testing needs no Python/sibling checkout. |
+| `scripts/gen-fixtures.ts` | Regenerates `scripts/fixtures/parity.json` from the Python reference (`npm run gen:fixtures`). |
+| `scripts/parity.ts` | Byte-parity test vs. the recorded Python reference output (`npm test`). |
 | `scripts/parity-roundtrip.ts` | Import round-trip test: build→parse→build is byte-identical (`npm test`). |
 | `src/components/EactMaker.tsx` | The editor UI (client-only). |
 
@@ -119,8 +121,10 @@ implementation and the full reverse-engineered binary-format spec.
 ```bash
 npm run dev            # dev server
 npm run gen:chars      # regenerate chars.generated.json from chars.toml
-npm test               # byte-parity vs the Python reference + import round-trip
+npm run gen:fixtures   # regenerate scripts/fixtures/parity.json from the Python reference
+npm test               # byte-parity vs recorded Python output + import round-trip (no Python needed)
 npm run test:roundtrip # just the build→parse→build byte round-trip
+npm run test:unit      # Vitest unit tests
 npm run build          # production build
 npm run lint           # eslint
 ```

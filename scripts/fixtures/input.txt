@@ -1,0 +1,73 @@
+Postulados
+L Gauss-div
+∇·E=\frac{ρ_v}{ε₀}⇒\int{}{x=S}{E}=\frac{Q_e}{ε₀}
+Las cargas son f de C.E. El flujo E a traves S cerrad es prop a la Q_e.
+Camp conservat-rotac
+∇×E=0⇒\int{}{C}{Edl}=0
+\note{C.E es irrot}{El campo electrostático es irrotacional: la circulación de E a lo largo de cualquier trayectoria cerrada es cero. Informa que el campo no tiene componente "rotante", lo que garantiza que el trabajo realizado por E al mover una carga entre dos puntos es independiente del camino. Esto es lo que permite definir el potencial eléctrico V como función escalar tal que}
+E=-∇V
+\note{Consec}{Los dos postulados juntos tienen una consecuencia poderosa: como E es irrotacional, ∃V, y sustituyendo en la ley de Gauss se obtiene la ecuación de Poisson: ∇²V=-\frac{ρ_v}{ε}; en regiones sin carga (ρ_v=0) se reduce a la ecuación de Laplace: ∇²V=0}
+Ley de Coulomb
+L Gauss-div
+∇·E=\frac{ρ_v}{ε₀}⇒\int{}{x=V}{∇·E}=\int{}{x=V}{\frac{Q_e}{ε₀}}
+Por L de div:
+\int{}{x=V}{∇·E}=∮[s=∂V]Eds=\frac{ρ_v}{ε₀}\int{}{x=V}{}=\frac{Vρ_v}{ε₀}=\frac{q}{ε₀}
+∮E₁ands=\frac{q₁}{ε₀}
+E₁∮ds=\frac{q₁}{ε₀}
+E₁=\frac{q₁}{4πd²ε₀}a_r
+Campo en pos q₂:
+F₂=q₂E₁(d)=\frac{q₁q₂}{4πd²ε₀}a_r
+Separacion Conductor Espacio Libre
+Prop del conductor en equilibrio
+ρ_v=0
+no hay carga vol libre
+E=0⇒no hay campo en el interior.
+
+Comp tg-rotacional
+∮Edl=0
+Comp normal-L Gauss
+\int{}{x=s}{E}=\frac{Q_e}{ε₀}
+
+En la sup las cargas se distribuyen seg la forma del conduct,
+la sup es equipot y el C.E es normal a ella.
+
+∮Edl=\frac{Q_e}{ε₀}
+E_nΔS=\frac{ρ_s}{ε}
+E_n=\frac{ρ_s}{ε}n⁰
+Geometria del Campo Escalar y Potencial
+Partiendo del post de irrot del C.E, grad C.Escalar
+E=-∇V
+∇×E=0⇒E=-∇V
+V_a-V_b=-\int{a}{b}{Edl}
+Si la carga desp sobre una equip
+V_a-V_b=0⇒\int{a}{b}{Edl}=0
+Signif que el C.E es perpendicular a las lin equipot
+Laplace
+E=-∇V
+∇·E=\frac{ρ_v}{ε}
+∇·(-∇V)=∇²V=-\frac{ρ_v}{ε}
+En reg (p=0) es la ec de Laplace
+∇²V=0
+Superposición
+∇²V_1=-\frac{ρ₁}{ε₀}
+∇²V=∇²(V_1+V_2)=∇²V_1+∇²V_2=-\frac{ρ₁}{ε₀}-\frac{ρ₂}{ε₀}=-\frac{ρ₁+ρ₂}{ε₀}=-\frac{ρ}{ε₀}
+V=V_1+V_2 satisface ec Poisson para fuente ρ₁+ρ₂
+Demost por el teor de uni de Poisson garantiza que la sol es unic dadas las cond de contorno.
+Establec la supos de portenc, la del camp el se obt utiliz el grandiente (op lineal)
+E=-∇V=-∇(V_1+V_2)=-∇V_1-∇V_2=E_1+E_2
+Continuidad
+I=\int{}{x=s}{J}=-\frac{dQ}{dt}=-\frac{d}{dt}\int{}{x=V}{ρ_v}
+x teor de div y como V=cte:
+I=\int{}{x=V}{∇·J}=-\frac{dQ}{dt}=-\int{}{x=V}{\frac{∂ρ_v}{∂t}}⇒∇·J=-\frac{∂ρ_v}{∂t}
+∇·J+\frac{∂ρ_v}{∂t}=0
+σ∇·E+\frac{∂ρ_v}{∂t}=0⇒\frac{σρ_v}{ε}+\frac{∂ρ_v}{∂t}=0
+es una EDO
+ρ_v(x,y,z,t)=ρ₀(r,t)\bolde;^(-\frac{t}{τ})
+τ=\frac{ε}{σ}
+
+Linea
+E=\frac{ρ_L}{2πrε₀}a_r
+Imagen
+V(P)=\frac{ρ_L}{2πε₀}ln\frac{r₂}{r₁}
+r_2=\sqrt{x²+(y+h)²}
+V_A=\frac{ρ_L}{2πε₀}ln\frac{2h}{a}
