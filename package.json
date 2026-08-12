@@ -13,7 +13,9 @@
     "lint": "eslint",
     "gen:chars": "node scripts/gen-chars.mjs",
     "test": "tsx scripts/parity.ts && tsx scripts/parity-roundtrip.ts",
-    "test:roundtrip": "tsx scripts/parity-roundtrip.ts"
+    "test:roundtrip": "tsx scripts/parity-roundtrip.ts",
+    "test:unit": "vitest run",
+    "test:unit:watch": "vitest"
   },
   "dependencies": {
     "@vercel/analytics": "^2.0.1",
@@ -33,7 +35,8 @@
     "prettier-plugin-tailwindcss": "^0.8.1",
     "tailwindcss": "^4",
     "tsx": "^4.23.12",
-    "typescript": "^6"
+    "typescript": "^6",
+    "vitest": "^4.1.10"
   },
   "allowScripts": {
     "esbuild@0.28.1": true
