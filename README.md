@@ -108,8 +108,8 @@ Plain ASCII passes through unchanged. The palettes only offer glyphs the CASIO f
 | `scripts/gen-chars.mjs` | Build step that produces the JSON (`npm run gen:chars`). |
 | `scripts/fixtures/` | Frozen test corpus + recorded Python reference output, so parity testing needs no Python/sibling checkout. |
 | `scripts/gen-fixtures.ts` | Regenerates `scripts/fixtures/parity.json` from the Python reference (`npm run gen:fixtures`). |
-| `scripts/parity.ts` | Byte-parity test vs. the recorded Python reference output (`npm test`). |
-| `scripts/parity-roundtrip.ts` | Import round-trip test: build→parse→build is byte-identical (`npm test`). |
+| `src/lib/casio/parity.test.ts` | Byte-parity test vs. the recorded Python reference output (`npm test`). |
+| `src/lib/casio/roundtrip.test.ts` | Import round-trip test: build→parse→build is byte-identical (`npm test`). |
 | `src/components/EactMaker.tsx` | The editor UI (client-only). |
 
 Everything runs in the browser; there is no backend. See [`AGENTS.md`](AGENTS.md) for the format
@@ -122,9 +122,7 @@ implementation and the full reverse-engineered binary-format spec.
 npm run dev            # dev server
 npm run gen:chars      # regenerate chars.generated.json from chars.toml
 npm run gen:fixtures   # regenerate scripts/fixtures/parity.json from the Python reference
-npm test               # byte-parity vs recorded Python output + import round-trip (no Python needed)
-npm run test:roundtrip # just the build→parse→build byte round-trip
-npm run test:unit      # Vitest unit tests
+npm test               # all Vitest tests: unit + byte-parity vs Python + import round-trip
 npm run build          # production build
 npm run lint           # eslint
 ```

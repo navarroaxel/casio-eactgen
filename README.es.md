@@ -99,7 +99,8 @@ representar.
 | `scripts/gen-chars.mjs` | Paso de build que produce el JSON (`npm run gen:chars`). |
 | `scripts/fixtures/` | Corpus de prueba congelado + salida grabada de la referencia en Python, para no depender de Python/repo hermano al probar. |
 | `scripts/gen-fixtures.ts` | Regenera `scripts/fixtures/parity.json` desde la referencia en Python (`npm run gen:fixtures`). |
-| `scripts/parity.ts` | Prueba de igualdad byte a byte contra la salida grabada de la referencia en Python (`npm test`). |
+| `src/lib/casio/parity.test.ts` | Prueba de igualdad byte a byte contra la salida grabada de la referencia en Python (`npm test`). |
+| `src/lib/casio/roundtrip.test.ts` | Prueba de round-trip de importación: build→parse→build es idéntico byte a byte (`npm test`). |
 | `src/components/EactMaker.tsx` | La interfaz del editor (solo cliente). |
 
 Todo se ejecuta en el navegador; no hay backend. Consulta [`AGENTS.md`](AGENTS.md) para los detalles
@@ -113,8 +114,7 @@ ingeniería inversa.
 npm run dev          # servidor de desarrollo
 npm run gen:chars    # regenera chars.generated.json desde chars.toml
 npm run gen:fixtures # regenera scripts/fixtures/parity.json desde la referencia en Python
-npm test  # verifica byte a byte contra la salida grabada de Python (no necesita Python)
-npm run test:unit    # pruebas unitarias con Vitest
+npm test             # todas las pruebas Vitest: unitarias + paridad de bytes con Python + round-trip
 npm run build        # build de producción
 npm run lint         # eslint
 ```

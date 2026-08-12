@@ -31,21 +31,23 @@ test` itself needs neither Python nor the clone — see below.
 | `src/lib/casio/chars.ts` | loads the generated maps |
 | `src/lib/casio/index.ts` | public API: `buildEact`, `encode`, `encodeLine`, `decode`, `decodeMarkup`, `parseEact`, `splitlines` |
 
-**Any change to the encoder must keep `npm test` green.** It runs two contracts, both self-contained
-(no `python3`, no sibling checkout — CI runs them on every push):
+**Any change to the encoder must keep `npm test` green.** `npm test` is a single Vitest run
+(`vitest run`) covering all `src/**/*.test.ts` files — pure unit tests alongside two byte-level
+contracts, all self-contained (no `python3`, no sibling checkout needed — CI runs the whole suite on
+every push):
 
-1. `scripts/parity.ts` byte-compares this TS output against **frozen** Python reference output —
-   `scripts/fixtures/parity.json` — recorded from `scripts/fixtures/input.txt` (every line in both
-   superscript modes, plus the full container incl. notes across several titles/formats). The
-   fixture is a point-in-time capture, itself verified byte-identical to real EactMaker output; it is
-   not re-derived from Python at test time. **Regenerate it** with `npm run gen:fixtures` (needs
-   `python3` + `../casio-eactgen-py`) after changing `casio_translate.py` or the test corpus — nothing
-   else re-checks that the fixture still matches the Python reference, so don't hand-edit either
-   `scripts/fixtures/*` file.
-2. `scripts/parity-roundtrip.ts` (`npm run test:roundtrip`) proves **import** is the byte-exact
-   inverse of build: `buildEact → parseEact → buildEact` is byte-identical over the same corpus (all
-   formats, both superscript modes). Import is **lossless as bytes but lossy as text** — there is no
-   Python reference for it (the `.py` is encoder-only), so the round-trip *is* its contract. The
+1. `src/lib/casio/parity.test.ts` byte-compares this TS output against **frozen** Python reference
+   output — `scripts/fixtures/parity.json` — recorded from `scripts/fixtures/input.txt` (every line
+   in both superscript modes, plus the full container incl. notes across several titles/formats).
+   The fixture is a point-in-time capture, itself verified byte-identical to real EactMaker output;
+   it is not re-derived from Python at test time. **Regenerate it** with `npm run gen:fixtures`
+   (needs `python3` + `../casio-eactgen-py`) after changing `casio_translate.py` or the test corpus —
+   nothing else re-checks that the fixture still matches the Python reference, so don't hand-edit
+   either `scripts/fixtures/*` file.
+2. `src/lib/casio/roundtrip.test.ts` proves **import** is the byte-exact inverse of build:
+   `buildEact → parseEact → buildEact` is byte-identical over the same corpus (all formats, both
+   superscript modes). Import is **lossless as bytes but lossy as text** — there is no Python
+   reference for it (the `.py` is encoder-only), so the round-trip *is* its contract. The
    reconstructed markup deliberately normalises ambiguous forms: `²`→`^{2}`, `½`→`\frac{1}{2}`,
    subscripts→`_{…}`, override glyphs→their canonical source char (`▽`→`∇`, `ɑ`→`α`). Bytes with no
    markup form at all decode to a visible `\xHH` escape and set the `lossy` flag.
@@ -110,9 +112,8 @@ don't move `localStorage` reads into effects or render EactMaker on the server.
 npm run dev            # dev server
 npm run gen:chars      # regenerate chars.generated.json (needs ../casio-eactgen-py)
 npm run gen:fixtures   # regenerate scripts/fixtures/parity.json (needs ../casio-eactgen-py)
-npm test               # byte-parity vs frozen fixtures + import round-trip (self-contained)
-npm run test:roundtrip # just the build→parse→build byte round-trip
-npm run test:unit      # Vitest unit tests (pure logic, also self-contained)
+npm test               # vitest run — every unit test + both byte-parity contracts (self-contained)
+npm run test:watch     # the same, in watch mode
 npm run build          # production build
 npm run lint           # eslint
 ```

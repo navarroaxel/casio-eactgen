@@ -13,10 +13,8 @@
     "lint": "eslint",
     "gen:chars": "node scripts/gen-chars.mjs",
     "gen:fixtures": "tsx scripts/gen-fixtures.ts",
-    "test": "tsx scripts/parity.ts && tsx scripts/parity-roundtrip.ts",
-    "test:roundtrip": "tsx scripts/parity-roundtrip.ts",
-    "test:unit": "vitest run",
-    "test:unit:watch": "vitest"
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@vercel/analytics": "^2.0.1",
