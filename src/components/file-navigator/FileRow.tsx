@@ -10,7 +10,7 @@ interface FileRowProps {
   active: boolean;
   onSelect: (id: string) => void;
   onEdit: (id: string) => void;
-  onDelete: (id: string) => void;
+  onDelete: (file: EactFile) => void;
   onMove: (id: string, folder: string | null) => void;
 }
 
@@ -51,9 +51,7 @@ export function FileRow({
       </button>
       <button
         type="button"
-        onClick={() => {
-          if (window.confirm(`Delete "${fileName(file)}"?`)) onDelete(file.id);
-        }}
+        onClick={() => onDelete(file)}
         title="Delete file"
         className={`${HOVER_ICON_BTN} text-sm`}
       >
