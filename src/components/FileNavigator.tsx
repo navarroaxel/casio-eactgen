@@ -171,7 +171,11 @@ export function FileNavigator(props: FileNavigatorProps) {
               name={folder}
               collapsed={collapse.isCollapsed(folder)}
               onToggle={() => collapse.toggle(folder)}
-              onNewFile={() => props.onNewFile(folder)}
+              onNewFile={() => {
+                // Reveal the folder so the new file's row is visible.
+                collapse.expand(folder);
+                props.onNewFile(folder);
+              }}
               onRename={() => props.onRenameFolder(folder)}
               onDelete={() => props.onDeleteFolder(folder)}
             >

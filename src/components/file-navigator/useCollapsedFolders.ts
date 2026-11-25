@@ -39,6 +39,13 @@ export function useCollapsedFolders(folders: string[]) {
     apply(next);
   };
 
+  const expand = (folder: string) => {
+    if (!collapsed.has(folder)) return;
+    const next = new Set(collapsed);
+    next.delete(folder);
+    apply(next);
+  };
+
   const allCollapsed =
     folders.length > 0 && folders.every((f) => collapsed.has(f));
   const toggleAll = () => apply(allCollapsed ? new Set() : new Set(folders));
@@ -46,6 +53,7 @@ export function useCollapsedFolders(folders: string[]) {
   return {
     isCollapsed: (folder: string) => collapsed.has(folder),
     toggle,
+    expand,
     toggleAll,
     allCollapsed,
   };
