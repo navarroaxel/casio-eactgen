@@ -49,12 +49,16 @@ export function ModalShell({
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
-      className="m-auto w-[calc(100%-2rem)] max-w-sm rounded-xl border border-black/10 bg-white p-4 text-inherit shadow-xl backdrop:bg-black/40 dark:border-white/10 dark:bg-neutral-900"
+      className="m-auto w-[calc(100%-2rem)] max-w-sm rounded-xl border border-black/10 bg-white p-0 text-inherit shadow-xl backdrop:bg-black/40 dark:border-white/10 dark:bg-neutral-900"
     >
-      <h2 id={titleId} className="mb-3 text-sm font-medium">
-        {title}
-      </h2>
-      {children}
+      {/* Padding lives on this inner box so a click on it never targets the
+          <dialog> itself — only the backdrop does. */}
+      <div className="p-4">
+        <h2 id={titleId} className="mb-3 text-sm font-medium">
+          {title}
+        </h2>
+        {children}
+      </div>
     </dialog>
   );
 }
@@ -185,6 +189,7 @@ export function NameModal({
 }) {
   const [value, setValue] = useState(initial);
   const inputRef = useRef<HTMLInputElement>(null);
+  const errorId = useId();
   useEffect(() => {
     inputRef.current?.focus();
     inputRef.current?.select();
@@ -209,10 +214,13 @@ export function NameModal({
         }}
         placeholder={placeholder}
         aria-invalid={error !== null}
+        aria-describedby={error ? errorId : undefined}
         className="w-full rounded-lg border border-black/15 bg-white px-3 py-2 outline-none focus:border-emerald-500 dark:border-white/15 dark:bg-black"
       />
       {error && (
-        <span className="mt-1 block text-xs text-amber-600">{error}</span>
+        <span id={errorId} className="mt-1 block text-xs text-amber-600">
+          {error}
+        </span>
       )}
       <div className="mt-4 flex justify-end gap-2">
         <button type="button" onClick={onClose} className={SECONDARY_BTN}>
