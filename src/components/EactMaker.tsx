@@ -121,7 +121,12 @@ function persistSyncedPaths(paths: string[]) {
   }
 }
 
-function syncMessage(dir: string, ok: number, removed: number, errors: string[]) {
+function syncMessage(
+  dir: string,
+  ok: number,
+  removed: number,
+  errors: string[],
+) {
   return (
     `Synced ${ok} file(s) to ${dir}` +
     (removed ? ` · ${removed} orphan(s) removed` : "") +
@@ -230,7 +235,8 @@ export default function EactMaker() {
     [],
   );
   const selectFile = useCallback(
-    (id: string) => setProject((p) => ({ ...p, ui: { ...p.ui, activeId: id } })),
+    (id: string) =>
+      setProject((p) => ({ ...p, ui: { ...p.ui, activeId: id } })),
     [],
   );
   const toggleNav = useCallback(
@@ -242,7 +248,11 @@ export default function EactMaker() {
     (folder: string | null = null) =>
       setProject((p) => {
         const f = newFile({ folder });
-        return { ...p, files: [...p.files, f], ui: { ...p.ui, activeId: f.id } };
+        return {
+          ...p,
+          files: [...p.files, f],
+          ui: { ...p.ui, activeId: f.id },
+        };
       }),
     [],
   );
@@ -258,8 +268,7 @@ export default function EactMaker() {
       setProject((p) => {
         let files = p.files.filter((f) => f.id !== id);
         if (files.length === 0) files = [newFile()];
-        const activeId =
-          p.ui.activeId === id ? files[0].id : p.ui.activeId;
+        const activeId = p.ui.activeId === id ? files[0].id : p.ui.activeId;
         return { ...p, files, ui: { ...p.ui, activeId } };
       }),
     [],
@@ -348,7 +357,8 @@ export default function EactMaker() {
       if (cancelled || !handle) return;
       fileHandleRef.current = handle;
       setLinkedName(handle.name);
-      const granted = (await handle.queryPermission?.({ mode: "readwrite" })) === "granted";
+      const granted =
+        (await handle.queryPermission?.({ mode: "readwrite" })) === "granted";
       if (!granted) {
         if (!cancelled) setLinkStatus("needs-permission");
         return;
@@ -402,7 +412,8 @@ export default function EactMaker() {
       dirHandleRef.current = handle;
       syncedPathsRef.current = loadSyncedPaths();
       setDirName(handle.name);
-      const granted = (await handle.queryPermission?.({ mode: "readwrite" })) === "granted";
+      const granted =
+        (await handle.queryPermission?.({ mode: "readwrite" })) === "granted";
       setDirStatus(granted ? "linked" : "needs-permission");
     });
     return () => {
@@ -591,11 +602,7 @@ export default function EactMaker() {
         }
       }
       const zipped = zipSync(zipInput);
-      downloadBlob(
-        "eactivities.zip",
-        zipped.slice().buffer,
-        "application/zip",
-      );
+      downloadBlob("eactivities.zip", zipped.slice().buffer, "application/zip");
       const renamed = plan.filter((e) => e.renamed).length;
       setStatus(
         `Exported ${plan.length} file(s) · ${total} bytes` +
@@ -641,7 +648,10 @@ export default function EactMaker() {
         const parsed = parseEact(bytes);
         const stem = f.name.replace(/\.[^.]*$/, "");
         imported.push(
-          newFile({ title: parsed.title || stem.slice(0, 8), content: parsed.content }),
+          newFile({
+            title: parsed.title || stem.slice(0, 8),
+            content: parsed.content,
+          }),
         );
         formats.add(parsed.format);
         if (parsed.lossy) lossy += 1;
@@ -670,7 +680,9 @@ export default function EactMaker() {
   // Link the project to a file on disk and auto-save there from now on.
   const handleLinkSave = async () => {
     try {
-      const handle = await pickSaveFile(`${safeName(title, "project")}.eam.json`);
+      const handle = await pickSaveFile(
+        `${safeName(title, "project")}.eam.json`,
+      );
       if (!handle) return; // cancelled
       const text = serializeProject(project);
       await writeFile(handle, text);
@@ -808,193 +820,197 @@ export default function EactMaker() {
         />
 
         <div className="flex min-w-0 flex-1 flex-col gap-5">
-      {/* Math toolbar */}
-      <section className="flex flex-wrap gap-2">
-        {MATH_BUTTONS.map((b) => (
-          <button
-            key={b.label}
-            type="button"
-            title={b.title}
-            onClick={() => insert({ pre: b.pre, post: b.post }, b.ownLine)}
-            className="rounded-lg border border-black/15 bg-white px-3 py-1.5 font-mono text-sm transition hover:border-emerald-500 hover:bg-emerald-50 dark:border-white/15 dark:bg-white/[0.04] dark:hover:bg-emerald-500/10"
-          >
-            {b.label}
-          </button>
-        ))}
-      </section>
+          {/* Math toolbar */}
+          <section className="flex flex-wrap gap-2">
+            {MATH_BUTTONS.map((b) => (
+              <button
+                key={b.label}
+                type="button"
+                title={b.title}
+                onClick={() => insert({ pre: b.pre, post: b.post }, b.ownLine)}
+                className="rounded-lg border border-black/15 bg-white px-3 py-1.5 font-mono text-sm transition hover:border-emerald-500 hover:bg-emerald-50 dark:border-white/15 dark:bg-white/[0.04] dark:hover:bg-emerald-500/10"
+              >
+                {b.label}
+              </button>
+            ))}
+          </section>
 
-      {/* Character palettes */}
-      <section className="rounded-xl border border-black/10 dark:border-white/10">
-        <div className="flex flex-wrap gap-1 border-b border-black/10 p-2 dark:border-white/10">
-          {PALETTES.map((p) => (
-            <button
-              key={p.id}
-              type="button"
-              onClick={() =>
-                setActiveTab((cur) => (cur === p.id ? null : p.id))
-              }
-              title={
-                activeTab === p.id ? `Hide ${p.label}` : `Show ${p.label}`
-              }
-              aria-expanded={activeTab === p.id}
-              className={`rounded-md px-3 py-1 text-sm transition ${
-                activeTab === p.id
-                  ? "bg-emerald-600 text-white"
-                  : "hover:bg-black/5 dark:hover:bg-white/10"
-              }`}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
-        {activeTab != null && (
-          <div className="flex max-h-44 flex-wrap gap-1 overflow-y-auto p-3">
-            {PALETTES.filter((p) => p.id === activeTab).map((p) =>
-              p.items.map((item) => (
+          {/* Character palettes */}
+          <section className="rounded-xl border border-black/10 dark:border-white/10">
+            <div className="flex flex-wrap gap-1 border-b border-black/10 p-2 dark:border-white/10">
+              {PALETTES.map((p) => (
                 <button
-                  key={item.insert}
+                  key={p.id}
                   type="button"
-                  title={item.title}
-                  onClick={() => insert({ pre: item.insert })}
-                  className="flex size-9 items-center justify-center rounded-md border border-black/10 bg-white text-base hover:border-emerald-500 hover:bg-emerald-50 dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-emerald-500/10"
+                  onClick={() =>
+                    setActiveTab((cur) => (cur === p.id ? null : p.id))
+                  }
+                  title={
+                    activeTab === p.id ? `Hide ${p.label}` : `Show ${p.label}`
+                  }
+                  aria-expanded={activeTab === p.id}
+                  className={`rounded-md px-3 py-1 text-sm transition ${
+                    activeTab === p.id
+                      ? "bg-emerald-600 text-white"
+                      : "hover:bg-black/5 dark:hover:bg-white/10"
+                  }`}
                 >
-                  {item.label}
+                  {p.label}
                 </button>
-              )),
-            )}
-          </div>
-        )}
-      </section>
-
-      {/* Editor (per-file) */}
-      <section className="flex flex-col gap-3">
-        <div className="flex flex-col gap-1">
-          <span className="text-sm font-medium">
-            Editor — <span className="font-mono">{title.trim() || "Untitled"}</span>
-            <span className="font-normal text-black/40 dark:text-white/40">
-              {" "}· one line per row (double-click the file name to rename)
-            </span>
-          </span>
-          <textarea
-            ref={taRef}
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            spellCheck={false}
-            placeholder={
-              "Type your formulas, e.g.\n∇·E=\\frac{ρ}{ε₀}\nWe=½CV^2\n\\note{Tip}{Notes appear as a strip}"
-            }
-            className="h-64 w-full resize-y rounded-xl border border-black/15 bg-white p-3 font-mono text-sm leading-relaxed outline-none focus:border-emerald-500 dark:border-white/15 dark:bg-black"
-          />
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <span className="text-sm font-medium">Preview</span>
-          <div className="flex h-56 flex-col overflow-hidden rounded-xl border border-black/15 dark:border-white/15">
-            <div className="flex items-center justify-between gap-2 border-b border-black/10 bg-black/[0.03] px-3 py-2 text-xs dark:border-white/10 dark:bg-white/[0.04]">
-              <span>{analysis.lineCount} line(s)</span>
-              <span>
-                {analysis.size != null ? (
-                  <span className="text-emerald-700 dark:text-emerald-400">
-                    {analysis.size} bytes · .{format}
-                  </span>
-                ) : (
-                  <span className="text-red-600 dark:text-red-400">
-                    encode error
-                  </span>
-                )}
-              </span>
+              ))}
             </div>
-            {analysis.error ? (
-              <div className="overflow-auto p-3 font-mono text-xs text-red-600 dark:text-red-400">
-                {analysis.error}
-              </div>
-            ) : (
-              <ol className="flex-1 overflow-auto p-3 font-mono text-sm">
-                {analysis.preview.length === 0 && (
-                  <li className="text-black/40 dark:text-white/40">
-                    Nothing to preview yet.
-                  </li>
+            {activeTab != null && (
+              <div className="flex max-h-44 flex-wrap gap-1 overflow-y-auto p-3">
+                {PALETTES.filter((p) => p.id === activeTab).map((p) =>
+                  p.items.map((item) => (
+                    <button
+                      key={item.insert}
+                      type="button"
+                      title={item.title}
+                      onClick={() => insert({ pre: item.insert })}
+                      className="flex size-9 items-center justify-center rounded-md border border-black/10 bg-white text-base hover:border-emerald-500 hover:bg-emerald-50 dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-emerald-500/10"
+                    >
+                      {item.label}
+                    </button>
+                  )),
                 )}
-                {analysis.preview.map((p, i) => (
-                  <li
-                    key={i}
-                    className="border-b border-dashed border-black/5 py-0.5 break-words whitespace-pre-wrap last:border-0 dark:border-white/5"
-                  >
-                    {p.note ? (
-                      <span className="text-sky-700 dark:text-sky-400">
-                        🗒 {p.text}
+              </div>
+            )}
+          </section>
+
+          {/* Editor (per-file) */}
+          <section className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1">
+              <span className="text-sm font-medium">
+                Editor —{" "}
+                <span className="font-mono">{title.trim() || "Untitled"}</span>
+                <span className="font-normal text-black/40 dark:text-white/40">
+                  {" "}
+                  · one line per row (double-click the file name to rename)
+                </span>
+              </span>
+              <textarea
+                ref={taRef}
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                spellCheck={false}
+                placeholder={
+                  "Type your formulas, e.g.\n∇·E=\\frac{ρ}{ε₀}\nWe=½CV^2\n\\note{Tip}{Notes appear as a strip}"
+                }
+                className="h-64 w-full resize-y rounded-xl border border-black/15 bg-white p-3 font-mono text-sm leading-relaxed outline-none focus:border-emerald-500 dark:border-white/15 dark:bg-black"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <span className="text-sm font-medium">Preview</span>
+              <div className="flex h-56 flex-col overflow-hidden rounded-xl border border-black/15 dark:border-white/15">
+                <div className="flex items-center justify-between gap-2 border-b border-black/10 bg-black/[0.03] px-3 py-2 text-xs dark:border-white/10 dark:bg-white/[0.04]">
+                  <span>{analysis.lineCount} line(s)</span>
+                  <span>
+                    {analysis.size != null ? (
+                      <span className="text-emerald-700 dark:text-emerald-400">
+                        {analysis.size} bytes · .{format}
                       </span>
                     ) : (
-                      p.text
+                      <span className="text-red-600 dark:text-red-400">
+                        encode error
+                      </span>
                     )}
-                  </li>
-                ))}
-              </ol>
-            )}
-          </div>
-        </div>
-      </section>
+                  </span>
+                </div>
+                {analysis.error ? (
+                  <div className="overflow-auto p-3 font-mono text-xs text-red-600 dark:text-red-400">
+                    {analysis.error}
+                  </div>
+                ) : (
+                  <ol className="flex-1 overflow-auto p-3 font-mono text-sm">
+                    {analysis.preview.length === 0 && (
+                      <li className="text-black/40 dark:text-white/40">
+                        Nothing to preview yet.
+                      </li>
+                    )}
+                    {analysis.preview.map((p, i) => (
+                      <li
+                        key={i}
+                        className="border-b border-dashed border-black/5 py-0.5 break-words whitespace-pre-wrap last:border-0 dark:border-white/5"
+                      >
+                        {p.note ? (
+                          <span className="text-sky-700 dark:text-sky-400">
+                            🗒 {p.text}
+                          </span>
+                        ) : (
+                          p.text
+                        )}
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </div>
+            </div>
+          </section>
 
-      {/* Actions */}
-      <section className="flex flex-wrap items-center gap-3">
-        <button
-          type="button"
-          onClick={handleExportAll}
-          className="rounded-lg bg-emerald-600 px-5 py-2.5 font-medium text-white transition hover:bg-emerald-700"
-        >
-          Export all (.zip)
-        </button>
-        <button
-          type="button"
-          onClick={handleConvert}
-          disabled={analysis.size == null}
-          className="rounded-lg border border-emerald-600/40 px-4 py-2.5 font-medium text-emerald-700 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-40 dark:text-emerald-400 dark:hover:bg-emerald-500/10"
-        >
-          Download this file (.{format})
-        </button>
-        {dirSupported && dirStatus === "none" && (
-          <button
-            type="button"
-            onClick={handleMapFolder}
-            title="Pick a folder and write the compiled files there, re-syncing on change"
-            className="rounded-lg border border-emerald-600/40 px-4 py-2.5 font-medium text-emerald-700 transition hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-500/10"
-          >
-            Sync to folder…
-          </button>
-        )}
-        {dirSupported && dirStatus === "linked" && (
-          <span
-            className="flex items-center gap-1.5 rounded-lg border border-emerald-600/40 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-400"
-            title={`Compiled files auto-sync into ${dirName}`}
-          >
-            <span aria-hidden>🔄</span>
-            <span className="max-w-[12rem] truncate">Syncing to {dirName}</span>
+          {/* Actions */}
+          <section className="flex flex-wrap items-center gap-3">
             <button
               type="button"
-              onClick={handleUnmapFolder}
-              title="Stop syncing to this folder"
-              className="rounded px-1 text-black/40 hover:bg-black/10 dark:text-white/40 dark:hover:bg-white/10"
+              onClick={handleExportAll}
+              className="rounded-lg bg-emerald-600 px-5 py-2.5 font-medium text-white transition hover:bg-emerald-700"
             >
-              ×
+              Export all (.zip)
             </button>
-          </span>
-        )}
-        {dirSupported && dirStatus === "needs-permission" && (
-          <button
-            type="button"
-            onClick={handleReconnectDir}
-            title="Re-grant access to resume syncing compiled files"
-            className="rounded-lg border border-amber-500/50 px-4 py-2.5 font-medium text-amber-700 transition hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-500/10"
-          >
-            Reconnect {dirName}
-          </button>
-        )}
-        {status && (
-          <span className="text-sm text-black/60 dark:text-white/60">
-            {status}
-          </span>
-        )}
-      </section>
+            <button
+              type="button"
+              onClick={handleConvert}
+              disabled={analysis.size == null}
+              className="rounded-lg border border-emerald-600/40 px-4 py-2.5 font-medium text-emerald-700 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-40 dark:text-emerald-400 dark:hover:bg-emerald-500/10"
+            >
+              Download this file (.{format})
+            </button>
+            {dirSupported && dirStatus === "none" && (
+              <button
+                type="button"
+                onClick={handleMapFolder}
+                title="Pick a folder and write the compiled files there, re-syncing on change"
+                className="rounded-lg border border-emerald-600/40 px-4 py-2.5 font-medium text-emerald-700 transition hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-500/10"
+              >
+                Sync to folder…
+              </button>
+            )}
+            {dirSupported && dirStatus === "linked" && (
+              <span
+                className="flex items-center gap-1.5 rounded-lg border border-emerald-600/40 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-400"
+                title={`Compiled files auto-sync into ${dirName}`}
+              >
+                <span aria-hidden>🔄</span>
+                <span className="max-w-[12rem] truncate">
+                  Syncing to {dirName}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleUnmapFolder}
+                  title="Stop syncing to this folder"
+                  className="rounded px-1 text-black/40 hover:bg-black/10 dark:text-white/40 dark:hover:bg-white/10"
+                >
+                  ×
+                </button>
+              </span>
+            )}
+            {dirSupported && dirStatus === "needs-permission" && (
+              <button
+                type="button"
+                onClick={handleReconnectDir}
+                title="Re-grant access to resume syncing compiled files"
+                className="rounded-lg border border-amber-500/50 px-4 py-2.5 font-medium text-amber-700 transition hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-500/10"
+              >
+                Reconnect {dirName}
+              </button>
+            )}
+            {status && (
+              <span className="text-sm text-black/60 dark:text-white/60">
+                {status}
+              </span>
+            )}
+          </section>
         </div>
       </div>
 
@@ -1011,8 +1027,8 @@ function Header() {
           Eact <span className="text-emerald-600">Maker</span>
         </h1>
         <p className="text-sm text-black/50 dark:text-white/50">
-          Write LaTeX-style math, get CASIO eActivity files (.g2e · .g1e ·
-          .g3e) for fx-9860G and fx-CG calculators.
+          Write LaTeX-style math, get CASIO eActivity files (.g2e · .g1e · .g3e)
+          for fx-9860G and fx-CG calculators.
         </p>
       </div>
       <GitHubLink />
@@ -1032,8 +1048,8 @@ function Footer() {
       >
         EactMaker
       </a>{" "}
-      by Helder7 &amp; Ziqumu. Output is byte-identical to EactMaker (G1E /
-      G2E / G3E), generated entirely client-side from a reverse-engineered file
+      by Helder7 &amp; Ziqumu. Output is byte-identical to EactMaker (G1E / G2E
+      / G3E), generated entirely client-side from a reverse-engineered file
       format.
     </footer>
   );
