@@ -9,7 +9,7 @@ const FORMATS: { value: EactFormat; label: string }[] = [
   { value: "g3e", label: "G3E" },
 ];
 
-function ModalShell({
+export function ModalShell({
   title,
   onClose,
   children,
@@ -152,6 +152,107 @@ export function SettingsModal({
       <div className="mt-4 flex justify-end">
         <button type="button" onClick={onClose} className={PRIMARY_BTN}>
           Done
+        </button>
+      </div>
+    </ModalShell>
+  );
+}
+
+/** Single-line name entry (folder names). `validate` returns an error or null. */
+export function NameModal({
+  title,
+  initial = "",
+  placeholder,
+  submitLabel = "Save",
+  validate,
+  onSubmit,
+  onClose,
+}: {
+  title: string;
+  initial?: string;
+  placeholder?: string;
+  submitLabel?: string;
+  validate?: (value: string) => string | null;
+  onSubmit: (value: string) => void;
+  onClose: () => void;
+}) {
+  const [value, setValue] = useState(initial);
+  const inputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    inputRef.current?.focus();
+    inputRef.current?.select();
+  }, []);
+  const trimmed = value.trim();
+  const error = trimmed ? (validate?.(trimmed) ?? null) : null;
+  const canSubmit = trimmed !== "" && error === null;
+  const submit = () => {
+    if (!canSubmit) return;
+    onSubmit(trimmed);
+    onClose();
+  };
+  return (
+    <ModalShell title={title} onClose={onClose}>
+      <input
+        ref={inputRef}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") submit();
+        }}
+        placeholder={placeholder}
+        aria-invalid={error !== null}
+        className="w-full rounded-lg border border-black/15 bg-white px-3 py-2 outline-none focus:border-emerald-500 dark:border-white/15 dark:bg-black"
+      />
+      {error && (
+        <span className="mt-1 block text-xs text-amber-600">{error}</span>
+      )}
+      <div className="mt-4 flex justify-end gap-2">
+        <button type="button" onClick={onClose} className={SECONDARY_BTN}>
+          Cancel
+        </button>
+        <button
+          type="button"
+          onClick={submit}
+          disabled={!canSubmit}
+          className={`${PRIMARY_BTN} disabled:cursor-not-allowed disabled:opacity-40`}
+        >
+          {submitLabel}
+        </button>
+      </div>
+    </ModalShell>
+  );
+}
+
+export function ConfirmModal({
+  title,
+  message,
+  confirmLabel = "Delete",
+  onConfirm,
+  onClose,
+}: {
+  title: string;
+  message: string;
+  confirmLabel?: string;
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <ModalShell title={title} onClose={onClose}>
+      <p className="text-sm">{message}</p>
+      <div className="mt-4 flex justify-end gap-2">
+        <button type="button" onClick={onClose} className={SECONDARY_BTN}>
+          Cancel
+        </button>
+        <button
+          type="button"
+          autoFocus
+          onClick={() => {
+            onConfirm();
+            onClose();
+          }}
+          className={PRIMARY_BTN}
+        >
+          {confirmLabel}
         </button>
       </div>
     </ModalShell>

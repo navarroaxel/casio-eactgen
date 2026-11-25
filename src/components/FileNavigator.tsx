@@ -5,7 +5,12 @@ import type { EactFormat } from "@/lib/casio";
 import type { EactFile } from "@/lib/project";
 import { FileRow, fileName } from "./file-navigator/FileRow";
 import { FolderSection } from "./file-navigator/FolderSection";
-import { SettingsModal, TitleModal } from "./file-navigator/Modals";
+import {
+  ConfirmModal,
+  NameModal,
+  SettingsModal,
+  TitleModal,
+} from "./file-navigator/Modals";
 import { ProjectFooter } from "./file-navigator/ProjectFooter";
 import { ACCENT_BTN } from "./file-navigator/styles";
 import type { LinkStatus } from "./file-navigator/types";
@@ -24,10 +29,10 @@ interface FileNavigatorProps {
   onSelect: (id: string) => void;
   onRenameFile: (id: string, title: string) => void;
   onNewFile: (folder: string | null) => void;
-  onNewFolder: () => void;
+  onNewFolder: (name: string) => void;
   onDeleteFile: (id: string) => void;
   onMoveFile: (id: string, folder: string | null) => void;
-  onRenameFolder: (name: string) => void;
+  onRenameFolder: (name: string, next: string) => void;
   onDeleteFolder: (name: string) => void;
   onSetFormat: (format: EactFormat) => void;
   onSetCompatibility: (value: boolean) => void;
@@ -58,6 +63,10 @@ export function FileNavigator(props: FileNavigatorProps) {
   const collapse = useCollapsedFolders(folders);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [folderDialog, setFolderDialog] = useState<
+    { kind: "new" } | { kind: "rename"; name: string } | null
+  >(null);
+  const [deleting, setDeleting] = useState<EactFile | null>(null);
   const editing = editingId ? files.find((f) => f.id === editingId) : undefined;
 
   const handleSelect = (id: string) => {
@@ -92,7 +101,7 @@ export function FileNavigator(props: FileNavigatorProps) {
       active={f.id === activeId}
       onSelect={handleSelect}
       onEdit={setEditingId}
-      onDelete={props.onDeleteFile}
+      onDelete={setDeleting}
       onMove={props.onMoveFile}
     />
   );
@@ -143,7 +152,7 @@ export function FileNavigator(props: FileNavigatorProps) {
           </button>
           <button
             type="button"
-            onClick={props.onNewFolder}
+            onClick={() => setFolderDialog({ kind: "new" })}
             title="Create a new folder"
             className={`flex-1 ${ACCENT_BTN}`}
           >
@@ -176,7 +185,7 @@ export function FileNavigator(props: FileNavigatorProps) {
                 collapse.expand(folder);
                 props.onNewFile(folder);
               }}
-              onRename={() => props.onRenameFolder(folder)}
+              onRename={() => setFolderDialog({ kind: "rename", name: folder })}
               onDelete={() => props.onDeleteFolder(folder)}
             >
               {files.filter((f) => f.folder === folder).map(renderRow)}
@@ -203,6 +212,34 @@ export function FileNavigator(props: FileNavigatorProps) {
           initial={editing.title}
           onSave={(t) => props.onRenameFile(editing.id, t)}
           onClose={() => setEditingId(null)}
+        />
+      )}
+      {folderDialog && (
+        <NameModal
+          title={folderDialog.kind === "new" ? "New folder" : "Rename folder"}
+          initial={folderDialog.kind === "rename" ? folderDialog.name : ""}
+          placeholder="Folder name"
+          submitLabel={folderDialog.kind === "new" ? "Create" : "Rename"}
+          validate={(v) =>
+            props.folders.includes(v) &&
+            !(folderDialog.kind === "rename" && v === folderDialog.name)
+              ? "A folder with that name already exists"
+              : null
+          }
+          onSubmit={(v) =>
+            folderDialog.kind === "new"
+              ? props.onNewFolder(v)
+              : props.onRenameFolder(folderDialog.name, v)
+          }
+          onClose={() => setFolderDialog(null)}
+        />
+      )}
+      {deleting && (
+        <ConfirmModal
+          title="Delete file"
+          message={`Delete "${fileName(deleting)}"? This can't be undone.`}
+          onConfirm={() => props.onDeleteFile(deleting.id)}
+          onClose={() => setDeleting(null)}
         />
       )}
       {settingsOpen && (
