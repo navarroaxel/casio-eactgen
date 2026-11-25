@@ -1,9 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useMemo, useState } from "react";
 import type { EactFormat } from "@/lib/casio";
 import type { EactFile } from "@/lib/project";
+import { FileRow, fileName } from "./file-navigator/FileRow";
+import { FolderSection } from "./file-navigator/FolderSection";
+import { SettingsModal, TitleModal } from "./file-navigator/Modals";
+import { ProjectFooter } from "./file-navigator/ProjectFooter";
+import { ACCENT_BTN } from "./file-navigator/styles";
+import type { LinkStatus } from "./file-navigator/types";
+import { useCollapsedFolders } from "./file-navigator/useCollapsedFolders";
+
+export type { LinkStatus };
 
 interface FileNavigatorProps {
   files: EactFile[];
@@ -38,61 +46,19 @@ interface FileNavigatorProps {
   onUnlink: () => void;
 }
 
-/** "none" = not linked; "linked" = auto-saving; "needs-permission" = reconnect. */
-export type LinkStatus = "none" | "linked" | "needs-permission";
-
-const FORMATS: { value: EactFormat; label: string }[] = [
-  { value: "g2e", label: "G2E" },
-  { value: "g1e", label: "G1E" },
-  { value: "g3e", label: "G3E" },
-];
-
-const COLLAPSED_KEY = "eactmaker.collapsedfolders.v1";
-
-// Per-device UI state (not part of the portable Project JSON). Safe to read in a
-// lazy initializer: the whole editor is rendered client-only.
-function loadCollapsed(): Set<string> {
-  try {
-    const raw = localStorage.getItem(COLLAPSED_KEY);
-    const arr: unknown = raw ? JSON.parse(raw) : [];
-    return new Set(
-      Array.isArray(arr) ? arr.filter((x) => typeof x === "string") : [],
-    );
-  } catch {
-    return new Set();
-  }
-}
-
-const fileName = (f: EactFile) => f.title.trim() || "Untitled";
+/** Folders displayed alphabetically (case-insensitive, natural number order). */
+const sortFolders = (folders: string[]) =>
+  [...folders].sort((a, b) =>
+    a.localeCompare(b, undefined, { sensitivity: "base", numeric: true }),
+  );
 
 export function FileNavigator(props: FileNavigatorProps) {
   const { files, activeId, open } = props;
-  // Display folders alphabetically (case-insensitive, natural number order).
-  const folders = [...props.folders].sort((a, b) =>
-    a.localeCompare(b, undefined, { sensitivity: "base", numeric: true }),
-  );
-  const loadRef = useRef<HTMLInputElement>(null);
-  const importRef = useRef<HTMLInputElement>(null);
+  const folders = useMemo(() => sortFolders(props.folders), [props.folders]);
+  const collapse = useCollapsedFolders(folders);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [collapsed, setCollapsed] = useState<Set<string>>(loadCollapsed);
   const editing = editingId ? files.find((f) => f.id === editingId) : undefined;
-
-  const updateCollapsed = (next: Set<string>) => {
-    setCollapsed(next);
-    try {
-      localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...next]));
-    } catch {
-      /* storage unavailable — state still works for this session */
-    }
-  };
-  const toggleFolder = (folder: string) => {
-    const next = new Set(collapsed);
-    if (!next.delete(folder)) next.add(folder);
-    updateCollapsed(next);
-  };
-  const allCollapsed =
-    folders.length > 0 && folders.every((f) => collapsed.has(f));
 
   const handleSelect = (id: string) => {
     props.onSelect(id);
@@ -118,7 +84,22 @@ export function FileNavigator(props: FileNavigatorProps) {
     );
   }
 
-  const rootFiles = files.filter((f) => f.folder === null);
+  const renderRow = (f: EactFile) => (
+    <FileRow
+      key={f.id}
+      file={f}
+      folders={folders}
+      active={f.id === activeId}
+      onSelect={handleSelect}
+      onEdit={setEditingId}
+      onDelete={props.onDeleteFile}
+      onMove={props.onMoveFile}
+    />
+  );
+
+  const allLabel = collapse.allCollapsed
+    ? "Expand all folders"
+    : "Collapse all folders";
 
   return (
     <>
@@ -156,7 +137,7 @@ export function FileNavigator(props: FileNavigatorProps) {
             type="button"
             onClick={() => props.onNewFile(null)}
             title="New file at the project root"
-            className="flex-1 rounded-md border border-black/15 px-2 py-1 text-xs transition hover:border-emerald-500 hover:bg-emerald-50 dark:border-white/15 dark:hover:bg-emerald-500/10"
+            className={`flex-1 ${ACCENT_BTN}`}
           >
             + File
           </button>
@@ -164,216 +145,53 @@ export function FileNavigator(props: FileNavigatorProps) {
             type="button"
             onClick={props.onNewFolder}
             title="Create a new folder"
-            className="flex-1 rounded-md border border-black/15 px-2 py-1 text-xs transition hover:border-emerald-500 hover:bg-emerald-50 dark:border-white/15 dark:hover:bg-emerald-500/10"
+            className={`flex-1 ${ACCENT_BTN}`}
           >
             + Folder
           </button>
           {folders.length > 0 && (
             <button
               type="button"
-              onClick={() =>
-                updateCollapsed(allCollapsed ? new Set() : new Set(folders))
-              }
-              title={
-                allCollapsed ? "Expand all folders" : "Collapse all folders"
-              }
-              aria-label={
-                allCollapsed ? "Expand all folders" : "Collapse all folders"
-              }
-              className="rounded-md border border-black/15 px-2 py-1 text-xs transition hover:border-emerald-500 hover:bg-emerald-50 dark:border-white/15 dark:hover:bg-emerald-500/10"
+              onClick={collapse.toggleAll}
+              title={allLabel}
+              aria-label={allLabel}
+              className={ACCENT_BTN}
             >
-              {allCollapsed ? "⊞" : "⊟"}
+              {collapse.allCollapsed ? "⊞" : "⊟"}
             </button>
           )}
         </div>
 
         <ul className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto">
-          {rootFiles.map((f) => (
-            <FileRow
-              key={f.id}
-              file={f}
-              onEdit={setEditingId}
-              {...props}
-              folders={folders}
-              onSelect={handleSelect}
-            />
-          ))}
+          {files.filter((f) => f.folder === null).map(renderRow)}
 
           {folders.map((folder) => (
-            <li key={folder} className="mt-1">
-              <div className="group flex items-center gap-1 rounded-md px-1 py-1 text-xs font-medium">
-                <button
-                  type="button"
-                  onClick={() => toggleFolder(folder)}
-                  aria-expanded={!collapsed.has(folder)}
-                  title={
-                    collapsed.has(folder)
-                      ? `Expand ${folder}`
-                      : `Collapse ${folder}`
-                  }
-                  className="mr-auto flex min-w-0 items-center gap-1 text-left"
-                >
-                  <span aria-hidden className="w-3 shrink-0 text-[10px]">
-                    {collapsed.has(folder) ? "▸" : "▾"}
-                  </span>
-                  <span className="truncate" title={folder}>
-                    📁 {folder}
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => props.onNewFile(folder)}
-                  title={`New file in ${folder}`}
-                  className="rounded px-1 opacity-0 transition group-hover:opacity-100 hover:bg-black/10 dark:hover:bg-white/10"
-                >
-                  +
-                </button>
-                <button
-                  type="button"
-                  onClick={() => props.onRenameFolder(folder)}
-                  title={`Rename ${folder}`}
-                  className="rounded px-1 opacity-0 transition group-hover:opacity-100 hover:bg-black/10 dark:hover:bg-white/10"
-                >
-                  ✎
-                </button>
-                <button
-                  type="button"
-                  onClick={() => props.onDeleteFolder(folder)}
-                  title={`Delete folder "${folder}" (its files move to the root)`}
-                  className="rounded px-1 opacity-0 transition group-hover:opacity-100 hover:bg-black/10 dark:hover:bg-white/10"
-                >
-                  ×
-                </button>
-              </div>
-              {!collapsed.has(folder) && (
-                <ul className="ml-3 flex flex-col gap-0.5 border-l border-black/10 pl-1 dark:border-white/10">
-                  {files
-                    .filter((f) => f.folder === folder)
-                    .map((f) => (
-                      <FileRow
-                        key={f.id}
-                        file={f}
-                        onEdit={setEditingId}
-                        {...props}
-                        folders={folders}
-                        onSelect={handleSelect}
-                      />
-                    ))}
-                </ul>
-              )}
-            </li>
+            <FolderSection
+              key={folder}
+              name={folder}
+              collapsed={collapse.isCollapsed(folder)}
+              onToggle={() => collapse.toggle(folder)}
+              onNewFile={() => props.onNewFile(folder)}
+              onRename={() => props.onRenameFolder(folder)}
+              onDelete={() => props.onDeleteFolder(folder)}
+            >
+              {files.filter((f) => f.folder === folder).map(renderRow)}
+            </FolderSection>
           ))}
         </ul>
 
-        <div className="mt-auto flex flex-col gap-1 border-t border-black/10 pt-2 dark:border-white/10">
-          {props.fsSupported ? (
-            <>
-              <div className="flex gap-1">
-                <button
-                  type="button"
-                  onClick={props.onLinkSave}
-                  title="Save to a file on disk and keep auto-saving there"
-                  className="flex-1 rounded-md border border-black/15 px-2 py-1 text-xs transition hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
-                >
-                  Save to file…
-                </button>
-                <button
-                  type="button"
-                  onClick={props.onOpenDisk}
-                  title="Open a .eam.json project from disk"
-                  className="flex-1 rounded-md border border-black/15 px-2 py-1 text-xs transition hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
-                >
-                  Open from file…
-                </button>
-              </div>
-              {props.linkStatus === "linked" && (
-                <div className="flex items-center gap-1 px-1 text-xs text-emerald-700 dark:text-emerald-400">
-                  <span aria-hidden>●</span>
-                  <span
-                    className="min-w-0 flex-1 truncate"
-                    title={props.linkedName ?? undefined}
-                  >
-                    Auto-saving to {props.linkedName}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={props.onUnlink}
-                    title="Stop auto-saving to this file"
-                    className="rounded px-1 text-black/40 hover:bg-black/10 dark:text-white/40 dark:hover:bg-white/10"
-                  >
-                    ×
-                  </button>
-                </div>
-              )}
-              {props.linkStatus === "needs-permission" && (
-                <button
-                  type="button"
-                  onClick={props.onReconnect}
-                  title="Re-grant access to resume auto-saving"
-                  className="rounded-md border border-amber-500/50 px-2 py-1 text-xs text-amber-700 transition hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-500/10"
-                >
-                  Reconnect {props.linkedName}
-                </button>
-              )}
-              <p className="px-1 text-[11px] leading-tight text-black/40 dark:text-white/40">
-                Tip: save into a Google Drive / Dropbox folder to sync across
-                devices.
-              </p>
-            </>
-          ) : (
-            <div className="flex gap-1">
-              <button
-                type="button"
-                onClick={props.onSave}
-                title="Download the whole project as a .eam.json file"
-                className="flex-1 rounded-md border border-black/15 px-2 py-1 text-xs transition hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
-              >
-                Save project
-              </button>
-              <button
-                type="button"
-                onClick={() => loadRef.current?.click()}
-                title="Load a .eam.json project file"
-                className="flex-1 rounded-md border border-black/15 px-2 py-1 text-xs transition hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
-              >
-                Load project
-              </button>
-              <input
-                ref={loadRef}
-                type="file"
-                accept=".json,.eam,application/json"
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) props.onLoad(f);
-                  e.target.value = "";
-                }}
-              />
-            </div>
-          )}
-          {/* Import compiled eActivities back into editable files — works in
-            every browser (read-only file input, no File System Access API). */}
-          <button
-            type="button"
-            onClick={() => importRef.current?.click()}
-            title="Import .g1e / .g2e / .g3e files made elsewhere or on the calculator"
-            className="rounded-md border border-black/15 px-2 py-1 text-xs transition hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
-          >
-            Import .g*e…
-          </button>
-          <input
-            ref={importRef}
-            type="file"
-            accept=".g1e,.g2e,.g3e"
-            multiple
-            className="hidden"
-            onChange={(e) => {
-              const files = e.target.files;
-              if (files && files.length > 0) props.onImport(files);
-              e.target.value = "";
-            }}
-          />
-        </div>
+        <ProjectFooter
+          onSave={props.onSave}
+          onLoad={props.onLoad}
+          onImport={props.onImport}
+          fsSupported={props.fsSupported}
+          linkStatus={props.linkStatus}
+          linkedName={props.linkedName}
+          onLinkSave={props.onLinkSave}
+          onOpenDisk={props.onOpenDisk}
+          onReconnect={props.onReconnect}
+          onUnlink={props.onUnlink}
+        />
       </aside>
 
       {editing && (
@@ -393,320 +211,5 @@ export function FileNavigator(props: FileNavigatorProps) {
         />
       )}
     </>
-  );
-}
-
-function FileRow({
-  file,
-  folders,
-  activeId,
-  onSelect,
-  onEdit,
-  onDeleteFile,
-  onMoveFile,
-}: { file: EactFile; onEdit: (id: string) => void } & Pick<
-  FileNavigatorProps,
-  "folders" | "activeId" | "onSelect" | "onDeleteFile" | "onMoveFile"
->) {
-  const active = file.id === activeId;
-  return (
-    <li className="group flex items-center gap-1">
-      <button
-        type="button"
-        onClick={() => onSelect(file.id)}
-        onDoubleClick={() => onEdit(file.id)}
-        className={`min-w-0 flex-1 truncate rounded-md px-2 py-1 text-left text-sm transition ${
-          active
-            ? "bg-emerald-600 text-white"
-            : "hover:bg-black/5 dark:hover:bg-white/10"
-        }`}
-        title={`${fileName(file)} — double-click to rename`}
-      >
-        {fileName(file)}
-      </button>
-      {folders.length > 0 && (
-        <MoveMenu file={file} folders={folders} onMoveFile={onMoveFile} />
-      )}
-      <button
-        type="button"
-        onClick={() => onEdit(file.id)}
-        title="Rename file"
-        className="rounded px-1 text-sm opacity-0 transition group-hover:opacity-100 hover:bg-black/10 dark:hover:bg-white/10"
-      >
-        ✎
-      </button>
-      <button
-        type="button"
-        onClick={() => {
-          if (window.confirm(`Delete "${fileName(file)}"?`))
-            onDeleteFile(file.id);
-        }}
-        title="Delete file"
-        className="rounded px-1 text-sm opacity-0 transition group-hover:opacity-100 hover:bg-black/10 dark:hover:bg-white/10"
-      >
-        ×
-      </button>
-    </li>
-  );
-}
-
-function MoveMenu({
-  file,
-  folders,
-  onMoveFile,
-}: { file: EactFile } & Pick<FileNavigatorProps, "folders" | "onMoveFile">) {
-  const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
-  const btnRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const open = pos !== null;
-  const close = useCallback(() => setPos(null), []);
-
-  // The file list scrolls and clips, so the menu is portalled to the body and
-  // positioned from the button's rect; close it on any outside interaction.
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      const t = e.target as Node;
-      if (!menuRef.current?.contains(t) && !btnRef.current?.contains(t))
-        close();
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") close();
-    };
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    window.addEventListener("scroll", close, true);
-    window.addEventListener("resize", close);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-      window.removeEventListener("scroll", close, true);
-      window.removeEventListener("resize", close);
-    };
-  }, [open, close]);
-
-  const toggle = () => {
-    if (open) return close();
-    const r = btnRef.current!.getBoundingClientRect();
-    setPos({ top: r.bottom + 4, right: window.innerWidth - r.right });
-  };
-
-  const move = (folder: string | null) => {
-    onMoveFile(file.id, folder);
-    close();
-  };
-
-  const options: { label: string; value: string | null }[] = [
-    { label: "(root)", value: null },
-    ...folders.map((f) => ({ label: f, value: f })),
-  ];
-
-  return (
-    <>
-      <button
-        ref={btnRef}
-        type="button"
-        onClick={toggle}
-        title="Move to folder"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        className="rounded px-1 text-sm opacity-0 transition group-hover:opacity-100 hover:bg-black/10 aria-expanded:opacity-100 dark:hover:bg-white/10"
-      >
-        🗂
-      </button>
-      {open &&
-        pos &&
-        createPortal(
-          <div
-            ref={menuRef}
-            role="menu"
-            style={{ position: "fixed", top: pos.top, right: pos.right }}
-            className="z-50 max-h-60 min-w-[9rem] overflow-y-auto rounded-md border border-black/10 bg-white py-1 text-sm shadow-lg dark:border-white/15 dark:bg-neutral-900"
-          >
-            {options.map((o) => {
-              const current = o.value === file.folder;
-              return (
-                <button
-                  key={o.value ?? "__root__"}
-                  type="button"
-                  role="menuitemradio"
-                  aria-checked={current}
-                  onClick={() => move(o.value)}
-                  className={`flex w-full items-center gap-2 px-3 py-1.5 text-left transition hover:bg-black/5 dark:hover:bg-white/10 ${
-                    current
-                      ? "font-medium text-emerald-700 dark:text-emerald-400"
-                      : ""
-                  }`}
-                >
-                  <span className="w-3">{current ? "✓" : ""}</span>
-                  <span className="truncate">{o.label}</span>
-                </button>
-              );
-            })}
-          </div>,
-          document.body,
-        )}
-    </>
-  );
-}
-
-function ModalShell({
-  title,
-  onClose,
-  children,
-}: {
-  title: string;
-  onClose: () => void;
-  children: React.ReactNode;
-}) {
-  const titleId = useId();
-
-  // Close on Escape regardless of which control has focus.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.stopPropagation();
-        onClose();
-      }
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
-  return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby={titleId}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-sm rounded-xl border border-black/10 bg-white p-4 shadow-xl dark:border-white/10 dark:bg-neutral-900"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h2 id={titleId} className="mb-3 text-sm font-medium">
-          {title}
-        </h2>
-        {children}
-      </div>
-    </div>
-  );
-}
-
-function TitleModal({
-  initial,
-  onSave,
-  onClose,
-}: {
-  initial: string;
-  onSave: (title: string) => void;
-  onClose: () => void;
-}) {
-  const [value, setValue] = useState(initial);
-  const inputRef = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    inputRef.current?.focus();
-    inputRef.current?.select();
-  }, []);
-  const over = value.length > 8;
-  const submit = () => {
-    onSave(value);
-    onClose();
-  };
-  return (
-    <ModalShell title="Rename file" onClose={onClose}>
-      <input
-        ref={inputRef}
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") submit();
-        }}
-        placeholder="e.g. PHYSICS"
-        maxLength={32}
-        className="w-full rounded-lg border border-black/15 bg-white px-3 py-2 font-mono outline-none focus:border-emerald-500 dark:border-white/15 dark:bg-black"
-      />
-      <span
-        className={`mt-1 block text-xs ${over ? "text-amber-600" : "text-black/40 dark:text-white/40"}`}
-      >
-        {over
-          ? `Only the first 8 chars are used (banner: "${value.slice(0, 8)}")`
-          : "Up to 8 characters — the file name shown on the calculator"}
-      </span>
-      <div className="mt-4 flex justify-end gap-2">
-        <button
-          type="button"
-          onClick={onClose}
-          className="rounded-lg border border-black/15 px-4 py-2 text-sm transition hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
-        >
-          Cancel
-        </button>
-        <button
-          type="button"
-          onClick={submit}
-          className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700"
-        >
-          Save
-        </button>
-      </div>
-    </ModalShell>
-  );
-}
-
-function SettingsModal({
-  format,
-  compatibility,
-  onSetFormat,
-  onSetCompatibility,
-  onClose,
-}: {
-  format: EactFormat;
-  compatibility: boolean;
-  onSetFormat: (format: EactFormat) => void;
-  onSetCompatibility: (value: boolean) => void;
-  onClose: () => void;
-}) {
-  return (
-    <ModalShell title="Project settings" onClose={onClose}>
-      <p className="mb-3 text-xs text-black/40 dark:text-white/40">
-        These apply to every file in the project.
-      </p>
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="font-medium">Format</span>
-        <select
-          value={format}
-          onChange={(e) => onSetFormat(e.target.value as EactFormat)}
-          className="rounded-lg border border-black/15 bg-white px-3 py-2 outline-none focus:border-emerald-500 dark:border-white/15 dark:bg-black"
-        >
-          {FORMATS.map((f) => (
-            <option key={f.value} value={f.value}>
-              {f.label}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label
-        className="mt-3 flex cursor-pointer items-center gap-2 text-sm select-none"
-        title="Encode ² ³ as the power form (^) rather than the literal superscript glyph"
-      >
-        <input
-          type="checkbox"
-          checked={compatibility}
-          onChange={(e) => onSetCompatibility(e.target.checked)}
-          className="size-4 accent-emerald-600"
-        />
-        <span>Compatibility mode</span>
-      </label>
-      <div className="mt-4 flex justify-end">
-        <button
-          type="button"
-          onClick={onClose}
-          className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700"
-        >
-          Done
-        </button>
-      </div>
-    </ModalShell>
   );
 }
