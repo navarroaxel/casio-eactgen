@@ -47,15 +47,52 @@ const FORMATS: { value: EactFormat; label: string }[] = [
   { value: "g3e", label: "G3E" },
 ];
 
+const COLLAPSED_KEY = "eactmaker.collapsedfolders.v1";
+
+// Per-device UI state (not part of the portable Project JSON). Safe to read in a
+// lazy initializer: the whole editor is rendered client-only.
+function loadCollapsed(): Set<string> {
+  try {
+    const raw = localStorage.getItem(COLLAPSED_KEY);
+    const arr: unknown = raw ? JSON.parse(raw) : [];
+    return new Set(
+      Array.isArray(arr) ? arr.filter((x) => typeof x === "string") : [],
+    );
+  } catch {
+    return new Set();
+  }
+}
+
 const fileName = (f: EactFile) => f.title.trim() || "Untitled";
 
 export function FileNavigator(props: FileNavigatorProps) {
-  const { files, folders, activeId, open } = props;
+  const { files, activeId, open } = props;
+  // Display folders alphabetically (case-insensitive, natural number order).
+  const folders = [...props.folders].sort((a, b) =>
+    a.localeCompare(b, undefined, { sensitivity: "base", numeric: true }),
+  );
   const loadRef = useRef<HTMLInputElement>(null);
   const importRef = useRef<HTMLInputElement>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState<Set<string>>(loadCollapsed);
   const editing = editingId ? files.find((f) => f.id === editingId) : undefined;
+
+  const updateCollapsed = (next: Set<string>) => {
+    setCollapsed(next);
+    try {
+      localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...next]));
+    } catch {
+      /* storage unavailable — state still works for this session */
+    }
+  };
+  const toggleFolder = (folder: string) => {
+    const next = new Set(collapsed);
+    if (!next.delete(folder)) next.add(folder);
+    updateCollapsed(next);
+  };
+  const allCollapsed =
+    folders.length > 0 && folders.every((f) => collapsed.has(f));
 
   const handleSelect = (id: string) => {
     props.onSelect(id);
@@ -75,8 +112,7 @@ export function FileNavigator(props: FileNavigatorProps) {
       >
         <span aria-hidden>▸</span>
         <span className="truncate sm:tracking-wide sm:[writing-mode:vertical-rl]">
-          Files ({files.length})
-          {active ? ` · ${fileName(active)}` : ""}
+          Files ({files.length}){active ? ` · ${fileName(active)}` : ""}
         </span>
       </button>
     );
@@ -86,219 +122,259 @@ export function FileNavigator(props: FileNavigatorProps) {
 
   return (
     <>
-    {/* Mobile: dim the page behind the full-screen drawer. */}
-    <div
-      className="fixed inset-0 z-40 bg-black/40 sm:hidden"
-      aria-hidden
-      onClick={props.onToggle}
-    />
-    <aside className="fixed inset-y-0 left-0 z-50 flex w-full flex-col gap-2 border-r border-black/10 bg-white p-3 sm:static sm:z-auto sm:w-60 sm:shrink-0 sm:self-stretch sm:rounded-xl sm:border sm:bg-transparent sm:p-2 dark:border-white/10 dark:bg-neutral-900 sm:dark:bg-transparent">
-      <div className="flex items-center justify-between px-1">
-        <span className="text-sm font-medium">Files</span>
-        <div className="flex items-center gap-0.5">
-          <button
-            type="button"
-            onClick={() => setSettingsOpen(true)}
-            title="Project settings"
-            className="rounded-md px-1.5 py-0.5 text-sm hover:bg-black/5 dark:hover:bg-white/10"
-          >
-            ⚙
-          </button>
-          <button
-            type="button"
-            onClick={props.onToggle}
-            title="Hide files"
-            className="rounded-md px-1.5 py-0.5 text-xs hover:bg-black/5 dark:hover:bg-white/10"
-          >
-            ◂
-          </button>
+      {/* Mobile: dim the page behind the full-screen drawer. */}
+      <div
+        className="fixed inset-0 z-40 bg-black/40 sm:hidden"
+        aria-hidden
+        onClick={props.onToggle}
+      />
+      <aside className="fixed inset-y-0 left-0 z-50 flex w-full flex-col gap-2 border-r border-black/10 bg-white p-3 sm:static sm:z-auto sm:w-60 sm:shrink-0 sm:self-stretch sm:rounded-xl sm:border sm:bg-transparent sm:p-2 dark:border-white/10 dark:bg-neutral-900 sm:dark:bg-transparent">
+        <div className="flex items-center justify-between px-1">
+          <span className="text-sm font-medium">Files</span>
+          <div className="flex items-center gap-0.5">
+            <button
+              type="button"
+              onClick={() => setSettingsOpen(true)}
+              title="Project settings"
+              className="rounded-md px-1.5 py-0.5 text-sm hover:bg-black/5 dark:hover:bg-white/10"
+            >
+              ⚙
+            </button>
+            <button
+              type="button"
+              onClick={props.onToggle}
+              title="Hide files"
+              className="rounded-md px-1.5 py-0.5 text-xs hover:bg-black/5 dark:hover:bg-white/10"
+            >
+              ◂
+            </button>
+          </div>
         </div>
-      </div>
 
-      <div className="flex gap-1">
-        <button
-          type="button"
-          onClick={() => props.onNewFile(null)}
-          title="New file at the project root"
-          className="flex-1 rounded-md border border-black/15 px-2 py-1 text-xs transition hover:border-emerald-500 hover:bg-emerald-50 dark:border-white/15 dark:hover:bg-emerald-500/10"
-        >
-          + File
-        </button>
-        <button
-          type="button"
-          onClick={props.onNewFolder}
-          title="Create a new folder"
-          className="flex-1 rounded-md border border-black/15 px-2 py-1 text-xs transition hover:border-emerald-500 hover:bg-emerald-50 dark:border-white/15 dark:hover:bg-emerald-500/10"
-        >
-          + Folder
-        </button>
-      </div>
+        <div className="flex gap-1">
+          <button
+            type="button"
+            onClick={() => props.onNewFile(null)}
+            title="New file at the project root"
+            className="flex-1 rounded-md border border-black/15 px-2 py-1 text-xs transition hover:border-emerald-500 hover:bg-emerald-50 dark:border-white/15 dark:hover:bg-emerald-500/10"
+          >
+            + File
+          </button>
+          <button
+            type="button"
+            onClick={props.onNewFolder}
+            title="Create a new folder"
+            className="flex-1 rounded-md border border-black/15 px-2 py-1 text-xs transition hover:border-emerald-500 hover:bg-emerald-50 dark:border-white/15 dark:hover:bg-emerald-500/10"
+          >
+            + Folder
+          </button>
+          {folders.length > 0 && (
+            <button
+              type="button"
+              onClick={() =>
+                updateCollapsed(allCollapsed ? new Set() : new Set(folders))
+              }
+              title={
+                allCollapsed ? "Expand all folders" : "Collapse all folders"
+              }
+              aria-label={
+                allCollapsed ? "Expand all folders" : "Collapse all folders"
+              }
+              className="rounded-md border border-black/15 px-2 py-1 text-xs transition hover:border-emerald-500 hover:bg-emerald-50 dark:border-white/15 dark:hover:bg-emerald-500/10"
+            >
+              {allCollapsed ? "⊞" : "⊟"}
+            </button>
+          )}
+        </div>
 
-      <ul className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto">
-        {rootFiles.map((f) => (
-          <FileRow
-            key={f.id}
-            file={f}
-            onEdit={setEditingId}
-            {...props}
-            onSelect={handleSelect}
-          />
-        ))}
+        <ul className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto">
+          {rootFiles.map((f) => (
+            <FileRow
+              key={f.id}
+              file={f}
+              onEdit={setEditingId}
+              {...props}
+              folders={folders}
+              onSelect={handleSelect}
+            />
+          ))}
 
-        {folders.map((folder) => (
-          <li key={folder} className="mt-1">
-            <div className="group flex items-center gap-1 rounded-md px-1 py-1 text-xs font-medium">
-              <span className="mr-auto truncate" title={folder}>
-                📁 {folder}
-              </span>
-              <button
-                type="button"
-                onClick={() => props.onNewFile(folder)}
-                title={`New file in ${folder}`}
-                className="rounded px-1 opacity-0 transition group-hover:opacity-100 hover:bg-black/10 dark:hover:bg-white/10"
-              >
-                +
-              </button>
-              <button
-                type="button"
-                onClick={() => props.onRenameFolder(folder)}
-                title={`Rename ${folder}`}
-                className="rounded px-1 opacity-0 transition group-hover:opacity-100 hover:bg-black/10 dark:hover:bg-white/10"
-              >
-                ✎
-              </button>
-              <button
-                type="button"
-                onClick={() => props.onDeleteFolder(folder)}
-                title={`Delete folder "${folder}" (its files move to the root)`}
-                className="rounded px-1 opacity-0 transition group-hover:opacity-100 hover:bg-black/10 dark:hover:bg-white/10"
-              >
-                ×
-              </button>
-            </div>
-            <ul className="ml-3 flex flex-col gap-0.5 border-l border-black/10 pl-1 dark:border-white/10">
-              {files
-                .filter((f) => f.folder === folder)
-                .map((f) => (
-                  <FileRow
-            key={f.id}
-            file={f}
-            onEdit={setEditingId}
-            {...props}
-            onSelect={handleSelect}
-          />
-                ))}
-            </ul>
-          </li>
-        ))}
-      </ul>
-
-      <div className="mt-auto flex flex-col gap-1 border-t border-black/10 pt-2 dark:border-white/10">
-        {props.fsSupported ? (
-          <>
-            <div className="flex gap-1">
-              <button
-                type="button"
-                onClick={props.onLinkSave}
-                title="Save to a file on disk and keep auto-saving there"
-                className="flex-1 rounded-md border border-black/15 px-2 py-1 text-xs transition hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
-              >
-                Save to file…
-              </button>
-              <button
-                type="button"
-                onClick={props.onOpenDisk}
-                title="Open a .eam.json project from disk"
-                className="flex-1 rounded-md border border-black/15 px-2 py-1 text-xs transition hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
-              >
-                Open from file…
-              </button>
-            </div>
-            {props.linkStatus === "linked" && (
-              <div className="flex items-center gap-1 px-1 text-xs text-emerald-700 dark:text-emerald-400">
-                <span aria-hidden>●</span>
-                <span className="min-w-0 flex-1 truncate" title={props.linkedName ?? undefined}>
-                  Auto-saving to {props.linkedName}
-                </span>
+          {folders.map((folder) => (
+            <li key={folder} className="mt-1">
+              <div className="group flex items-center gap-1 rounded-md px-1 py-1 text-xs font-medium">
                 <button
                   type="button"
-                  onClick={props.onUnlink}
-                  title="Stop auto-saving to this file"
-                  className="rounded px-1 text-black/40 hover:bg-black/10 dark:text-white/40 dark:hover:bg-white/10"
+                  onClick={() => toggleFolder(folder)}
+                  aria-expanded={!collapsed.has(folder)}
+                  title={
+                    collapsed.has(folder)
+                      ? `Expand ${folder}`
+                      : `Collapse ${folder}`
+                  }
+                  className="mr-auto flex min-w-0 items-center gap-1 text-left"
+                >
+                  <span aria-hidden className="w-3 shrink-0 text-[10px]">
+                    {collapsed.has(folder) ? "▸" : "▾"}
+                  </span>
+                  <span className="truncate" title={folder}>
+                    📁 {folder}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => props.onNewFile(folder)}
+                  title={`New file in ${folder}`}
+                  className="rounded px-1 opacity-0 transition group-hover:opacity-100 hover:bg-black/10 dark:hover:bg-white/10"
+                >
+                  +
+                </button>
+                <button
+                  type="button"
+                  onClick={() => props.onRenameFolder(folder)}
+                  title={`Rename ${folder}`}
+                  className="rounded px-1 opacity-0 transition group-hover:opacity-100 hover:bg-black/10 dark:hover:bg-white/10"
+                >
+                  ✎
+                </button>
+                <button
+                  type="button"
+                  onClick={() => props.onDeleteFolder(folder)}
+                  title={`Delete folder "${folder}" (its files move to the root)`}
+                  className="rounded px-1 opacity-0 transition group-hover:opacity-100 hover:bg-black/10 dark:hover:bg-white/10"
                 >
                   ×
                 </button>
               </div>
-            )}
-            {props.linkStatus === "needs-permission" && (
+              {!collapsed.has(folder) && (
+                <ul className="ml-3 flex flex-col gap-0.5 border-l border-black/10 pl-1 dark:border-white/10">
+                  {files
+                    .filter((f) => f.folder === folder)
+                    .map((f) => (
+                      <FileRow
+                        key={f.id}
+                        file={f}
+                        onEdit={setEditingId}
+                        {...props}
+                        folders={folders}
+                        onSelect={handleSelect}
+                      />
+                    ))}
+                </ul>
+              )}
+            </li>
+          ))}
+        </ul>
+
+        <div className="mt-auto flex flex-col gap-1 border-t border-black/10 pt-2 dark:border-white/10">
+          {props.fsSupported ? (
+            <>
+              <div className="flex gap-1">
+                <button
+                  type="button"
+                  onClick={props.onLinkSave}
+                  title="Save to a file on disk and keep auto-saving there"
+                  className="flex-1 rounded-md border border-black/15 px-2 py-1 text-xs transition hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
+                >
+                  Save to file…
+                </button>
+                <button
+                  type="button"
+                  onClick={props.onOpenDisk}
+                  title="Open a .eam.json project from disk"
+                  className="flex-1 rounded-md border border-black/15 px-2 py-1 text-xs transition hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
+                >
+                  Open from file…
+                </button>
+              </div>
+              {props.linkStatus === "linked" && (
+                <div className="flex items-center gap-1 px-1 text-xs text-emerald-700 dark:text-emerald-400">
+                  <span aria-hidden>●</span>
+                  <span
+                    className="min-w-0 flex-1 truncate"
+                    title={props.linkedName ?? undefined}
+                  >
+                    Auto-saving to {props.linkedName}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={props.onUnlink}
+                    title="Stop auto-saving to this file"
+                    className="rounded px-1 text-black/40 hover:bg-black/10 dark:text-white/40 dark:hover:bg-white/10"
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
+              {props.linkStatus === "needs-permission" && (
+                <button
+                  type="button"
+                  onClick={props.onReconnect}
+                  title="Re-grant access to resume auto-saving"
+                  className="rounded-md border border-amber-500/50 px-2 py-1 text-xs text-amber-700 transition hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-500/10"
+                >
+                  Reconnect {props.linkedName}
+                </button>
+              )}
+              <p className="px-1 text-[11px] leading-tight text-black/40 dark:text-white/40">
+                Tip: save into a Google Drive / Dropbox folder to sync across
+                devices.
+              </p>
+            </>
+          ) : (
+            <div className="flex gap-1">
               <button
                 type="button"
-                onClick={props.onReconnect}
-                title="Re-grant access to resume auto-saving"
-                className="rounded-md border border-amber-500/50 px-2 py-1 text-xs text-amber-700 transition hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-500/10"
+                onClick={props.onSave}
+                title="Download the whole project as a .eam.json file"
+                className="flex-1 rounded-md border border-black/15 px-2 py-1 text-xs transition hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
               >
-                Reconnect {props.linkedName}
+                Save project
               </button>
-            )}
-            <p className="px-1 text-[11px] leading-tight text-black/40 dark:text-white/40">
-              Tip: save into a Google Drive / Dropbox folder to sync across devices.
-            </p>
-          </>
-        ) : (
-          <div className="flex gap-1">
-            <button
-              type="button"
-              onClick={props.onSave}
-              title="Download the whole project as a .eam.json file"
-              className="flex-1 rounded-md border border-black/15 px-2 py-1 text-xs transition hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
-            >
-              Save project
-            </button>
-            <button
-              type="button"
-              onClick={() => loadRef.current?.click()}
-              title="Load a .eam.json project file"
-              className="flex-1 rounded-md border border-black/15 px-2 py-1 text-xs transition hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
-            >
-              Load project
-            </button>
-            <input
-              ref={loadRef}
-              type="file"
-              accept=".json,.eam,application/json"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) props.onLoad(f);
-                e.target.value = "";
-              }}
-            />
-          </div>
-        )}
-        {/* Import compiled eActivities back into editable files — works in
+              <button
+                type="button"
+                onClick={() => loadRef.current?.click()}
+                title="Load a .eam.json project file"
+                className="flex-1 rounded-md border border-black/15 px-2 py-1 text-xs transition hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
+              >
+                Load project
+              </button>
+              <input
+                ref={loadRef}
+                type="file"
+                accept=".json,.eam,application/json"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) props.onLoad(f);
+                  e.target.value = "";
+                }}
+              />
+            </div>
+          )}
+          {/* Import compiled eActivities back into editable files — works in
             every browser (read-only file input, no File System Access API). */}
-        <button
-          type="button"
-          onClick={() => importRef.current?.click()}
-          title="Import .g1e / .g2e / .g3e files made elsewhere or on the calculator"
-          className="rounded-md border border-black/15 px-2 py-1 text-xs transition hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
-        >
-          Import .g*e…
-        </button>
-        <input
-          ref={importRef}
-          type="file"
-          accept=".g1e,.g2e,.g3e"
-          multiple
-          className="hidden"
-          onChange={(e) => {
-            const files = e.target.files;
-            if (files && files.length > 0) props.onImport(files);
-            e.target.value = "";
-          }}
-        />
-      </div>
-    </aside>
+          <button
+            type="button"
+            onClick={() => importRef.current?.click()}
+            title="Import .g1e / .g2e / .g3e files made elsewhere or on the calculator"
+            className="rounded-md border border-black/15 px-2 py-1 text-xs transition hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
+          >
+            Import .g*e…
+          </button>
+          <input
+            ref={importRef}
+            type="file"
+            accept=".g1e,.g2e,.g3e"
+            multiple
+            className="hidden"
+            onChange={(e) => {
+              const files = e.target.files;
+              if (files && files.length > 0) props.onImport(files);
+              e.target.value = "";
+            }}
+          />
+        </div>
+      </aside>
 
       {editing && (
         <TitleModal
@@ -362,7 +438,8 @@ function FileRow({
       <button
         type="button"
         onClick={() => {
-          if (window.confirm(`Delete "${fileName(file)}"?`)) onDeleteFile(file.id);
+          if (window.confirm(`Delete "${fileName(file)}"?`))
+            onDeleteFile(file.id);
         }}
         title="Delete file"
         className="rounded px-1 text-sm opacity-0 transition group-hover:opacity-100 hover:bg-black/10 dark:hover:bg-white/10"
@@ -390,7 +467,8 @@ function MoveMenu({
     if (!open) return;
     const onDown = (e: MouseEvent) => {
       const t = e.target as Node;
-      if (!menuRef.current?.contains(t) && !btnRef.current?.contains(t)) close();
+      if (!menuRef.current?.contains(t) && !btnRef.current?.contains(t))
+        close();
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") close();
@@ -455,7 +533,9 @@ function MoveMenu({
                   aria-checked={current}
                   onClick={() => move(o.value)}
                   className={`flex w-full items-center gap-2 px-3 py-1.5 text-left transition hover:bg-black/5 dark:hover:bg-white/10 ${
-                    current ? "font-medium text-emerald-700 dark:text-emerald-400" : ""
+                    current
+                      ? "font-medium text-emerald-700 dark:text-emerald-400"
+                      : ""
                   }`}
                 >
                   <span className="w-3">{current ? "✓" : ""}</span>
